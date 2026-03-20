@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Settings - Kralrei FF 26-v1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-flag-checkered"></i> Active Event</h2>
+                <div class="active-event-name" title="{{ settings.get('event_name') }}">{{ settings.get('event_name') or 'No Event Active' }}</div>
+                <div id="sidebarClock" class="sidebar-clock">00:00:00</div>
+                <div class="status" style="margin-top: 15px; justify-content: center;">
+                    <span id="connectionStatus" class="{% if connected %}connected{% else %}disconnected{% endif %}">
+                        <i class="fas fa-wifi"></i> {% if connected %}Connected{% else %}Disconnected{% endif %}
+                    </span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/events"><i class="fas fa-stopwatch"></i> Timing</a>
+                <a href="/settings" class="active"><i class="fas fa-cog"></i> Settings</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+                <h1 style="color: #2c3e50; margin: 0;"><i class="fas fa-cog"></i> Settings</h1>
+            </header>
+
+        <form id="settingsForm" method="POST" action="/settings">
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3 style="color: #2c3e50; margin-bottom: 25px;"><i class="fas fa-plug"></i> Connection Card</h3>
+                    <div class="form-group" style="gap: 25px;">
+                        <div>
+                            <label style="margin-bottom: 8px;">COM Port:</label>
+                            <select id="comPort" style="width: 100%;" {% if connected %}disabled{% endif %}>
+                                {% if connected and current_port and current_port not in ports %}
+                                <option value="{{ current_port }}" selected>{{ current_port }} (Connected)</option>
+                                {% endif %}
+                                {% for port in ports %}
+                                <option value="{{ port }}" {% if connected and port == current_port %}selected{% endif %}>{{ port }}{% if connected and port == current_port %} (Locked){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div style="display: flex; margin-top: 10px;">
+                            <button type="button" 
+                                    class="btn {% if connected %}danger{% else %}primary{% endif %}" 
+                                    id="serialActionBtn" 
+                                    onclick="toggleConnection()"
+                                    style="width: 100%;">
+                                {% if connected %}
+                                    <i class="fas fa-unlink"></i> Disconnect
+                                {% else %}
+                                    <i class="fas fa-link"></i> Connect
+                                {% endif %}
+                            </button>
+                        </div>
+                        
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3 style="color: #2c3e50; margin-bottom: 20px;"><i class="fas fa-stopwatch"></i> Race Setup</h3>
+                    <div class="form-group" style="flex-direction: column; align-items: stretch; gap: 15px;">
+                        <div>
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">Beep Sound:</label>
+                            <select id="beepSoundInput" name="beep_sound" style="width: 100%; padding: 12px; background: #fff; border: 2px solid #dee2e6; border-radius: 8px;">
+                                <option value="on" {% if settings and settings.get('beep_sound', 'on') == 'on' %}selected{% endif %}>On</option>
+                                <option value="mute" {% if settings and settings.get('beep_sound') == 'mute' %}selected{% endif %}>Mute</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">Time Precision:</label>
+                            <select id="timePrecisionInput" name="time_precision" style="width: 100%; padding: 12px; background: #fff; border: 2px solid #dee2e6; border-radius: 8px;">
+                                <option value="1" {% if settings and settings.get('time_precision') == '1' %}selected{% endif %}>.0 (Decisecond)</option>
+                                <option value="2" {% if settings and settings.get('time_precision') == '2' %}selected{% endif %}>.00 (Centisecond)</option>
+                                <option value="3" {% if settings and settings.get('time_precision', '3') == '3' %}selected{% endif %}>.000 (Millisecond)</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn primary" onclick="saveRaceSetupJSON()" style="width: 100%; justify-content: center; margin-top: 10px;">
+                            <i class="fas fa-save"></i> Save Race Setup
+                        </button>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #2c3e50; margin: 0;"><i class="fas fa-flag"></i> Setup Event</h3>
+                        <button type="button" class="btn secondary" onclick="createNewEvent()" style="padding: 5px 15px; font-size: 0.85rem;"><i class="fas fa-plus"></i> New Event</button>
+                    </div>
+                    {% if message %}
+                    <div id="saveMessage" style="background: #e6fced; color: #0d8225; padding: 10px; margin-bottom: 15px; border-radius: 4px;">{{ message }}</div>
+                    {% endif %}
+                    
+                    <div id="eventSelection" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #dee2e6;">
+                        <label style="display:block; margin-bottom:5px; font-weight:bold; color: #6366f1;">Open Existing Event:</label>
+                        <select onchange="switchEvent(this.value)" style="width: 100%; padding: 10px; border: 2px solid #6366f1; border-radius: 8px; background: #f8fafc; font-weight: bold;">
+                            <option value="">-- Select to Switch Event --</option>
+                            {% for evt in all_events %}
+                            <option value="{{ evt.Race_ID }}" {% if settings.get('active_race_id')|string == evt.Race_ID|string %}selected{% endif %}>
+                                [#{{ evt.Race_ID }}] {{ evt.Event_Name or '(Unnamed)' }} - {{ evt.Start_Date }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small style="color: #64748b; margin-top: 5px; display: block;">* Switching events will change the active session for storage.</small>
+                    </div>
+
+                    <div id="eventFields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div style="grid-column: span 2;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">Event Name:</label>
+                            <input type="text" name="event_name" id="eventNameInput" 
+                                   placeholder="New Event"
+                                   value="{{ '' if settings.get('event_name')|lower == 'none' else settings.get('event_name', '') }}" 
+                                   style="width: 100%; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">Start Date:</label>
+                            <input type="date" name="start_date" id="startDateInput" 
+                                   value="{{ '' if settings.get('start_date')|lower == 'none' else settings.get('start_date', '') }}" 
+                                   style="width: 100%; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">End Date:</label>
+                            <input type="date" name="end_date" id="endDateInput" 
+                                   value="{{ '' if settings.get('end_date')|lower == 'none' else settings.get('end_date', '') }}" 
+                                   style="width: 100%; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label style="display:block; margin-bottom:5px; font-weight:bold;">Timing Officer:</label>
+                            <input type="text" name="operator" id="operatorInput" 
+                                   placeholder="none"
+                                   value="{{ '' if settings.get('operator')|lower == 'none' else settings.get('operator', '') }}" 
+                                   style="width: 100%; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Coordinate:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="koordinatInput" name="koordinat" 
+                                   placeholder="none"
+                                   value="{{ '' if settings.get('koordinat')|lower == 'none' else settings.get('koordinat', '') }}" 
+                                   style="flex: 1; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
+                            <button type="button" class="btn secondary" onclick="getKoordinat(this)">
+                                <i class="fas fa-map-marker-alt"></i> Get
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 25px; display: flex; flex-direction: column; gap: 12px;">
+                        <button type="submit" form="settingsForm" class="btn primary" style="width: 100%; justify-content: center; padding: 12px;">
+                            <i class="fas fa-save"></i> Save Setup Event
+                        </button>
+                    </div>
+                    
+                </div>
+            </div>
+        </form>
+        </main>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
+</body>
+</html>

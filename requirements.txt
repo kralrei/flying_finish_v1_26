@@ -1,0 +1,20 @@
+# Web Framework
+Flask==2.3.3
+
+# Serial Communication
+pyserial==3.5
+
+# Database (SQLite is built-in, no extra requirement)
+
+# Development & Debugging
+Werkzeug==2.3.7
+
+# Optional: For better error handling and production
+gunicorn==21.2.0
+
+# Desktop Integration
+pywebview==4.2.2
+
+# Real-time WebSockets
+flask-socketio==5.3.6
+eventlet==0.33.3

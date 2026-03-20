@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Events - Kralrei FF 26-v1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-flag-checkered"></i> Active Event</h2>
+                <div class="active-event-name" title="{{ settings.get('event_name') }}">{{ settings.get('event_name') or 'No Event Active' }}</div>
+                <div id="sidebarClock" class="sidebar-clock">00:00:00</div>
+                <div class="status" style="margin-top: 15px; justify-content: center;">
+                    <span id="connectionStatus" class="{% if connected %}connected{% else %}disconnected{% endif %}">
+                        <i class="fas fa-wifi"></i> {% if connected %}Connected{% else %}Disconnected{% endif %}
+                    </span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/events" class="active"><i class="fas fa-stopwatch"></i> Timing</a>
+                <a href="/settings"><i class="fas fa-cog"></i> Settings</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+                <h1 style="color: #2c3e50; margin: 0;"><i class="fas fa-stopwatch"></i> Timing</h1>
+                <div class="view-controls" style="display: flex; gap: 15px; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-weight: bold; color: #2c3e50;">SS:</label>
+                        <select id="ssSelector" style="padding: 8px 15px; border: 2px solid #dee2e6; border-radius: 8px; font-weight: bold; background: white;">
+                            {% for i in range(1, 31) %}
+                            <option value="{{ i }}" {% if settings and settings.get('current_ss')|string == i|string %}selected{% endif %}>{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="height: 30px; width: 2px; background: #dee2e6;"></div>
+                    <button id="btnSingle" class="btn primary" onclick="setViewMode('single')">Single Track</button>
+                    <button id="btnDouble" class="btn secondary" onclick="setViewMode('double')">Double Track</button>
+                </div>
+            </header>
+
+            <!-- Single Track View -->
+            <div id="singleTrackView" class="dashboard-card">
+                <div class="table-container">
+                    <table id="eventsTable">
+                        <thead>
+                            <tr>
+                                <th>no</th>
+                                <th>SS</th>
+                                <th>ns</th>
+                                <th>Finish Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="timingEventsBody">
+                            {% for event in events %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td><span style="font-weight: bold; color: #2980b9;">{{ event.SS or '1' }}</span></td>
+                                <td>
+                                    <input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" 
+                                           onkeydown="if(event.key==='Enter') updateNS('{{ event.id }}', this.value)" 
+                                           class="ns-input {{ event.Line_Status }}"
+                                           style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;">
+                                </td>
+                                <td>{{ event.Time_Stamp }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Double Track View -->
+            <div id="doubleTrackView" style="display: none; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="dashboard-card">
+                    <h3 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-arrow-right"></i> Left Track (F1)</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>no</th>
+                                    <th>SS</th>
+                                    <th>ns</th>
+                                    <th>Finish Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timingLeftBody">
+                                {% set f1_idx = namespace(value=1) %}
+                                {% for event in events if event.Line_Status == 'F1' %}
+                                <tr>
+                                    <td>{{ f1_idx.value }}</td>
+                                    <td><span style="font-weight: bold; color: #2980b9;">{{ event.SS or '1' }}</span></td>
+                                    <td><input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" onkeydown="if(event.key==='Enter') updateNS('{{ event.id }}', this.value)" class="ns-input F1" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
+                                    <td>{{ event.Time_Stamp }}</td>
+                                </tr>
+                                {% set f1_idx.value = f1_idx.value + 1 %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-arrow-left"></i> Right Track (F2)</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>no</th>
+                                    <th>SS</th>
+                                    <th>ns</th>
+                                    <th>Finish Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timingRightBody">
+                                {% set f2_idx = namespace(value=1) %}
+                                {% for event in events if event.Line_Status == 'F2' %}
+                                <tr>
+                                    <td>{{ f2_idx.value }}</td>
+                                    <td><span style="font-weight: bold; color: #2980b9;">{{ event.SS or '1' }}</span></td>
+                                    <td><input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" onkeydown="if(event.key==='Enter') updateNS('{{ event.id }}', this.value)" class="ns-input F2" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
+                                    <td>{{ event.Time_Stamp }}</td>
+                                </tr>
+                                {% set f2_idx.value = f2_idx.value + 1 %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                function setViewMode(mode) {
+                    const singleView = document.getElementById('singleTrackView');
+                    const doubleView = document.getElementById('doubleTrackView');
+                    const btnSingle = document.getElementById('btnSingle');
+                    const btnDouble = document.getElementById('btnDouble');
+
+                    if (mode === 'single') {
+                        singleView.style.display = 'block';
+                        doubleView.style.display = 'none';
+                        btnSingle.className = 'btn primary';
+                        btnDouble.className = 'btn secondary';
+                    } else {
+                        singleView.style.display = 'none';
+                        doubleView.style.display = 'grid';
+                        btnSingle.className = 'btn secondary';
+                        btnDouble.className = 'btn primary';
+                    }
+                }
+            </script>
+        </main>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
+</body>
+</html>

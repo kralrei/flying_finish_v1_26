@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+env/
+venv/
+.env
+.vscode/
+.idea/
+*.db
+*.log
+Race_setup.json
+result.txt
