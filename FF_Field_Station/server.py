@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -14,6 +14,10 @@ DATABASE_URL = os.getenv('DATABASE_URL', 'postgres://avnadmin:AVNS_kBuJkPaOCdYMO
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
+
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
 
 @app.route('/api/status', methods=['GET'])
 def status():
