@@ -59,5 +59,8 @@ def save_timing():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == '__main__':
-    # Run on all interfaces for mobile access (Access via http://your-pc-ip:5050)
-    app.run(host='0.0.0.0', port=5050, debug=True)
+    # Local development: python server.py
+    # Access via http://127.0.0.1:5050
+    port = int(os.getenv('PORT', 5050))
+    app.run(host='0.0.0.0', port=port, debug=True)
+
