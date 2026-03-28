@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Service Park - Kralrei FF 26-v1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-flag-checkered"></i> Active Event</h2>
+                <div class="active-event-name" title="{{ event.get('Event_Name') }}">{{ event.get('Event_Name') or 'No Event Active' }}</div>
+                <div id="sidebarClock" class="sidebar-clock">00:00:00</div>
+                <div class="status" style="margin-top: 15px; justify-content: center;">
+                    <span id="connectionStatus" class="{% if connected %}connected{% else %}disconnected{% endif %}">
+                        <i class="fas fa-wifi"></i> {% if connected %}Connected{% else %}Disconnected{% endif %}
+                    </span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+                <a href="/hq"><i class="fas fa-satellite"></i> <span>HQ</span></a>
+                <a href="/tc"><i class="fas fa-hourglass-start"></i> <span>TC</span></a>
+                <a href="/start"><i class="fas fa-flag-checkered"></i> <span>Start</span></a>
+                <a href="/flying_finish"><i class="fas fa-stopwatch"></i> <span>Flying Finish</span></a>
+                <a href="/stop"><i class="fas fa-hand-paper"></i> <span>Finish Stop</span></a>
+                <a href="/park" class="active"><i class="fas fa-wrench"></i> <span>Service Park</span></a>
+                <a href="/results"><i class="fas fa-trophy"></i> <span>Results</span></a>
+                <a href="/settings"><i class="fas fa-cog"></i> <span>Settings</span></a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <h1 style="color: #2c3e50;"><i class="fas fa-wrench"></i> Service Park</h1>
+            </header>
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3 style="color: #2c3e50; margin-bottom: 20px;">Maintenance & Park</h3>
+                    <p style="color: #64748b;">Monitoring cars in Service Park area.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
+</body>
+</html>

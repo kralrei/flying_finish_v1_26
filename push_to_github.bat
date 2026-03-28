@@ -18,6 +18,10 @@ echo Sedang membuat label perubahan...
 git commit -m "%commit_msg%"
 
 echo.
+echo Sedang menarik data terbaru dari GitHub...
+git pull --rebase
+
+echo.
 echo Sedang mengunggah ke GitHub...
 git push
 

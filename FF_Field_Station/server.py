@@ -35,15 +35,25 @@ def get_event_details():
         race_id = res['value'] if res else None
         
         if not race_id or race_id == '0':
-            return jsonify({'event_name': 'WAITING FOR EVENT...'})
+            return jsonify({'event_name': 'SET ACTIVE RACE IN HQ', 'total_ss': 10})
             
-        # 2. Get Event Name
-        cur.execute("SELECT event_name FROM events WHERE race_id = %s", (race_id,))
+        # 2. Get Event Details
+        cur.execute("SELECT event_name, total_ss FROM events WHERE race_id = %s", (race_id,))
         event = cur.fetchone()
         
         cur.close()
         conn.close()
-        return jsonify({'event_name': event['event_name'] if event and event['event_name'] else f'RACE ID: {race_id[:8]}'})
+        
+        if event:
+            return jsonify({
+                'event_name': event['event_name'] or f"RACE: {race_id[:8]}",
+                'total_ss': event['total_ss'] or 10
+            })
+        else:
+            return jsonify({
+                'event_name': f"RACE ID: {race_id[:8]} (NOT IN DB)",
+                'total_ss': 10
+            })
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 

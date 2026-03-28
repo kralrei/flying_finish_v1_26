@@ -4,7 +4,9 @@ Flask==2.3.3
 # Serial Communication
 pyserial==3.5
 
-# Database (SQLite is built-in, no extra requirement)
+# Database
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
 
 # Development & Debugging
 Werkzeug==2.3.7

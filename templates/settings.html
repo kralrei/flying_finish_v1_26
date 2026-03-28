@@ -11,7 +11,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <h2><i class="fas fa-flag-checkered"></i> Active Event</h2>
-                <div class="active-event-name" title="{{ settings.get('event_name') }}">{{ settings.get('event_name') or 'No Event Active' }}</div>
+                <div class="active-event-name" title="{{ event.get('Event_Name') }}">{{ event.get('Event_Name') or 'No Event Active' }}</div>
                 <div id="sidebarClock" class="sidebar-clock">00:00:00</div>
                 <div class="status" style="margin-top: 15px; justify-content: center;">
                     <span id="connectionStatus" class="{% if connected %}connected{% else %}disconnected{% endif %}">
@@ -20,9 +20,15 @@
                 </div>
             </div>
             <nav class="sidebar-nav">
-                <a href="/"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                <a href="/events"><i class="fas fa-stopwatch"></i> Timing</a>
-                <a href="/settings" class="active"><i class="fas fa-cog"></i> Settings</a>
+                <a href="/"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+                <a href="/hq"><i class="fas fa-satellite"></i> <span>HQ</span></a>
+                <a href="/tc"><i class="fas fa-hourglass-start"></i> <span>TC</span></a>
+                <a href="/start"><i class="fas fa-flag-checkered"></i> <span>Start</span></a>
+                <a href="/flying_finish"><i class="fas fa-stopwatch"></i> <span>Flying Finish</span></a>
+                <a href="/stop"><i class="fas fa-hand-paper"></i> <span>Finish Stop</span></a>
+                <a href="/park"><i class="fas fa-wrench"></i> <span>Service Park</span></a>
+                <a href="/results"><i class="fas fa-trophy"></i> <span>Results</span></a>
+                <a href="/settings" class="active"><i class="fas fa-cog"></i> <span>Settings</span></a>
             </nav>
         </aside>
 
@@ -89,72 +95,17 @@
                     </div>
                 </div>
 
-                <div class="dashboard-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="color: #2c3e50; margin: 0;"><i class="fas fa-flag"></i> Setup Event</h3>
-                        <button type="button" class="btn secondary" onclick="createNewEvent()" style="padding: 5px 15px; font-size: 0.85rem;"><i class="fas fa-plus"></i> New Event</button>
-                    </div>
-                    {% if message %}
-                    <div id="saveMessage" style="background: #e6fced; color: #0d8225; padding: 10px; margin-bottom: 15px; border-radius: 4px;">{{ message }}</div>
-                    {% endif %}
-                    
-                    <div id="eventSelection" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #dee2e6;">
-                        <label style="display:block; margin-bottom:5px; font-weight:bold; color: #6366f1;">Open Existing Event:</label>
-                        <select onchange="switchEvent(this.value)" style="width: 100%; padding: 10px; border: 2px solid #6366f1; border-radius: 8px; background: #f8fafc; font-weight: bold;">
-                            <option value="">-- Select to Switch Event --</option>
-                            {% for evt in all_events %}
-                            <option value="{{ evt.Race_ID }}" {% if settings.get('active_race_id')|string == evt.Race_ID|string %}selected{% endif %}>
-                                [#{{ evt.Race_ID }}] {{ evt.Event_Name or '(Unnamed)' }} - {{ evt.Start_Date }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <small style="color: #64748b; margin-top: 5px; display: block;">* Switching events will change the active session for storage.</small>
-                    </div>
+            </div>
+        </form>
 
-                    <div id="eventFields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div style="grid-column: span 2;">
-                            <label style="display:block; margin-bottom:5px; font-weight:bold;">Event Name:</label>
-                            <input type="text" name="event_name" id="eventNameInput" 
-                                   placeholder="New Event"
-                                   value="{{ '' if settings.get('event_name')|lower == 'none' else settings.get('event_name', '') }}" 
-                                   style="width: 100%; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
-                        </div>
-                        <div>
-                            <label style="display:block; margin-bottom:5px; font-weight:bold;">Start Date:</label>
-                            <input type="date" name="start_date" id="startDateInput" 
-                                   value="{{ '' if settings.get('start_date')|lower == 'none' else settings.get('start_date', '') }}" 
-                                   style="width: 100%; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
-                        </div>
-                        <div>
-                            <label style="display:block; margin-bottom:5px; font-weight:bold;">End Date:</label>
-                            <input type="date" name="end_date" id="endDateInput" 
-                                   value="{{ '' if settings.get('end_date')|lower == 'none' else settings.get('end_date', '') }}" 
-                                   style="width: 100%; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
-                        </div>
-                        <div style="grid-column: span 2;">
-                            <label style="display:block; margin-bottom:5px; font-weight:bold;">Timing Officer:</label>
-                            <input type="text" name="operator" id="operatorInput" 
-                                   placeholder="none"
-                                   value="{{ '' if settings.get('operator')|lower == 'none' else settings.get('operator', '') }}" 
-                                   style="width: 100%; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
-                        </div>
-                    </div>
-                    <div style="margin-top: 15px;">
-                        <label style="display:block; margin-bottom:5px; font-weight:bold;">Coordinate:</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="koordinatInput" name="koordinat" 
-                                   placeholder="none"
-                                   value="{{ '' if settings.get('koordinat')|lower == 'none' else settings.get('koordinat', '') }}" 
-                                   style="flex: 1; padding: 8px; border: 2px solid #dee2e6; border-radius: 8px;">
-                            <button type="button" class="btn secondary" onclick="getKoordinat(this)">
-                                <i class="fas fa-map-marker-alt"></i> Get
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top: 25px; display: flex; flex-direction: column; gap: 12px;">
-                        <button type="submit" form="settingsForm" class="btn primary" style="width: 100%; justify-content: center; padding: 12px;">
-                            <i class="fas fa-save"></i> Save Setup Event
+                    <div style="margin-top: 25px; border-top: 2px dashed #dee2e6; padding-top: 20px;">
+                        <h3 style="color: #6366f1; margin-bottom: 10px;"><i class="fas fa-cloud-upload-alt"></i> Cloud Sync (Aiven)</h3>
+                        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px;">
+                            Klik untuk memindahkan data lokal (SQLite) ke Aiven Cloud saat internet aktif.
+                        </p>
+                        <button type="button" id="syncDbBtn" class="btn" onclick="syncDatabase()" 
+                                style="width: 100%; justify-content: center; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            <i class="fas fa-sync"></i> Sync Data to Aiven Cloud
                         </button>
                     </div>
                     

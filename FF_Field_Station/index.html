@@ -79,6 +79,7 @@
             // App state
             const [apiUrl, setApiUrl] = useState(localStorage.getItem('ff_api_url') || 'https://conservative-jacquenetta-kralrei-indonesia-ba3ddee7.koyeb.app');
             const [eventName, setEventName] = useState('FF FIELD');
+            const [totalSS, setTotalSS] = useState(10);
             const [showSettings, setShowSettings] = useState(false);
             const [loading, setLoading] = useState(false);
             const [message, setMessage] = useState('');
@@ -93,6 +94,7 @@
                     const response = await fetch(`${apiUrl}/api/event_details`);
                     const data = await response.json();
                     if (data.event_name) setEventName(data.event_name.toUpperCase());
+                    if (data.total_ss) setTotalSS(parseInt(data.total_ss));
                 } catch (e) {
                     console.error("Failed to fetch event name:", e);
                 }
@@ -183,7 +185,7 @@
                                     onChange={(e) => setSS(e.target.value)}
                                     className="w-full text-lg font-bold"
                                 >
-                                    {[...Array(30)].map((_, i) => (
+                                    {[...Array(totalSS)].map((_, i) => (
                                         <option key={i+1} value={i+1}>SS {i+1}</option>
                                     ))}
                                 </select>

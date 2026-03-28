@@ -1,8 +1,37 @@
-// Init Socket.IO for Real-time push
 const socket = io();
+let isFetching = false;
+let socketFetchTimeout = null;
+
+socket.on('connect', () => {
+    updateSyncIndicator(true);
+    const connStatus = document.getElementById('connectionStatus');
+    if (connStatus) {
+        connStatus.innerHTML = '<i class="fas fa-wifi"></i> Connected';
+        connStatus.className = 'connected';
+    }
+});
+
+socket.on('disconnect', () => {
+    updateSyncIndicator(false);
+    const connStatus = document.getElementById('connectionStatus');
+    if (connStatus) {
+        connStatus.innerHTML = '<i class="fas fa-wifi"></i> Disconnected';
+        connStatus.className = 'disconnected';
+    }
+});
+
+function updateSyncIndicator(active) {
+    const dots = document.querySelectorAll('.sync-dot');
+    dots.forEach(dot => {
+        dot.style.background = active ? '#10b981' : '#ef4444';
+        dot.style.boxShadow = active ? '0 0 10px rgba(16, 185, 129, 0.4)' : '0 0 10px rgba(239, 68, 68, 0.4)';
+    });
+}
+
 socket.on('new_data', (data) => {
     console.log('Real-time update received:', data);
-    fetchEvents(); // Push UI update immediately
+    clearTimeout(socketFetchTimeout);
+    socketFetchTimeout = setTimeout(fetchEvents, 300);
 });
 
 // Setup Audio Context for playing Beeps
@@ -81,6 +110,8 @@ let lastEventId = null;
 let justSwitchedSS = false;
 
 async function fetchEvents() {
+    if (isFetching) return;
+    isFetching = true;
     try {
         const ssSelector = document.getElementById('ssSelector');
         // Filter by SS only on Timing page
@@ -133,8 +164,22 @@ async function fetchEvents() {
         const timingBody = document.getElementById('timingEventsBody');
         if (timingBody) {
             timingBody.innerHTML = '';
-            // Only show racing events (F1, F2, FM)
-            const racingEvents = events.filter(e => ['F1', 'F2', 'FM'].includes(e.Line_Status));
+            
+            // Logika Filter Pintar Berdasarkan Halaman (TC / Start / Timing)
+            const path = window.location.pathname;
+            let racingEvents = [];
+            
+            if (path.includes('/tc')) {
+                // Hanya tampilkan data dari HP ber-label TC
+                racingEvents = events.filter(e => e.Line_Status === 'TC');
+            } else if (path.includes('/start')) {
+                // Hanya tampilkan data dari HP ber-label START
+                racingEvents = events.filter(e => e.Line_Status === 'START');
+            } else {
+                // Default: Halaman Timing/Flying Finish (F1, F2, FM)
+                racingEvents = events.filter(e => ['F1', 'F2', 'FM'].includes(e.Line_Status));
+            }
+
             racingEvents.forEach((event, index) => {
                 const tr = document.createElement('tr');
                 const isFocused = (focusedId == event.id);
@@ -207,8 +252,10 @@ async function fetchEvents() {
             });
         }
 
-        // Update stats blocks dynamically with animation
-        const totalEvents = events.length;
+        // Hanya hitung event balapan (F1, F2, FM) untuk Total Passing agar SYS tidak masuk
+        const passingEvents = events.filter(e => ['F1', 'F2', 'FM'].includes(e.Line_Status));
+        const totalEvents = passingEvents.length;
+        
         const f1Count = events.filter(e => e.Line_Status === 'F1').length;
         const f2Count = events.filter(e => e.Line_Status === 'F2').length;
         const fmCount = events.filter(e => e.Line_Status === 'FM').length;
@@ -220,6 +267,8 @@ async function fetchEvents() {
 
     } catch (err) {
         console.error('Failed to fetch events:', err);
+    } finally {
+        isFetching = false;
     }
 }
 
@@ -252,28 +301,105 @@ async function saveRaceSetupJSON() {
     }
 }
 
-async function createNewEvent() {
-    if (confirm("Start a new event? This will create a fresh session and clear all fields below.")) {
-        try {
-            // Step 1: Clear visually immediately
-            const fields = ['eventNameInput', 'startDateInput', 'endDateInput', 'operatorInput', 'koordinatInput'];
-            fields.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
+function showNewEventModal() {
+    document.getElementById('newEventModal').classList.add('active');
+}
 
-            // Step 2: Send to server
-            const res = await fetch('/api/events/new_event', { method: 'POST' });
+function hideNewEventModal() {
+    document.getElementById('newEventModal').classList.remove('active');
+}
+
+async function submitNewEvent() {
+    const name = document.getElementById('modalEventName').value;
+    const start = document.getElementById('modalStartDate').value;
+    const end = document.getElementById('modalEndDate').value;
+    const loc = document.getElementById('modalLocation').value;
+    const total_ss = document.getElementById('modalTotalSS').value || 1;
+
+    if (!name) { alert("Please enter an Event Name"); return; }
+
+    try {
+        const res = await fetch('/api/events/new_event', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                event_name: name,
+                start_date: start,
+                end_date: end,
+                koordinat: loc,
+                total_ss: total_ss
+            })
+        });
+        if (res.ok) {
+            window.location.href = '/hq?success=true';
+        } else {
+            alert("Failed to create new event");
+        }
+    } catch (e) {
+        console.error('Failed to create new event:', e);
+    }
+}
+
+function viewEventDetails(eventId) {
+    if (!eventId) return;
+    window.location.href = `/hq?view_id=${eventId}`;
+}
+
+async function toggleActivation(eventId, activate) {
+    if (!eventId) return;
+    const targetId = activate ? eventId : '0'; // Deactivate sets ID to '0'
+    try {
+        const res = await fetch('/api/events/switch', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ event_id: targetId })
+        });
+        if (res.ok) {
+            window.location.href = `/hq?view_id=${eventId}&message=Event ${activate ? 'Activated' : 'Deactivated'}`;
+        }
+    } catch (e) {
+        console.error('Toggle error:', e);
+    }
+}
+
+function enableHqEditing() {
+    const fields = ['eventNameInput', 'startDateInput', 'endDateInput', 'koordinatInput', 'totalSsInput'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.disabled = false;
+            el.style.background = '#fff';
+            el.style.border = '2px solid #6366f1';
+        }
+    });
+    document.getElementById('saveEventBtn').style.display = 'block';
+    document.getElementById('editBtn').style.display = 'none';
+}
+
+async function deleteEvent(eventId) {
+    if (!eventId) return;
+    if (confirm("WARNING: This will PERMANENTLY delete this event and ALL its timing data from BOTH local and cloud. This cannot be undone. Area you sure?")) {
+        try {
+            const res = await fetch('/api/events/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ event_id: eventId })
+            });
+            const data = await res.json();
             if (res.ok) {
-                location.reload(); 
+                alert("Event Deleted Successfully.");
+                window.location.href = '/hq';
+            } else {
+                alert("Error: " + data.error);
             }
         } catch (e) {
-            console.error('Failed to create new event:', e);
+            console.error('Delete error:', e);
         }
     }
 }
 
 async function switchEvent(eventId) {
+    // Legacy switch handler if needed elsewhere
     if (!eventId) return;
     try {
         const res = await fetch('/api/events/switch', {
@@ -289,19 +415,175 @@ async function switchEvent(eventId) {
     }
 }
 
-// Polling every 2 seconds for live updates
-setInterval(fetchEvents, 2000);
-fetchEvents();
+async function refreshStartingList() {
+    const viewId = document.getElementById('view_id_hidden')?.value;
+    if (!viewId) return;
+    
+    try {
+        const res = await fetch(`/api/starting_list/${viewId}`);
+        const data = await res.json();
+        const tbody = document.getElementById('startingListBody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">Lineup is empty</td></tr>';
+            return;
+        }
+        
+        data.forEach((entry, index) => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid #f1f5f9';
+            tr.innerHTML = `
+                <td style="padding:12px;">${index + 1}</td>
+                <td style="padding:12px; font-weight:bold;">${entry.ns || '-'}</td>
+                <td style="padding:12px;">${entry.driver || '-'}</td>
+                <td style="padding:12px;">${entry.co_driver || '-'}</td>
+                <td style="padding:12px;">${entry.car || '-'}</td>
+                <td style="padding:12px;"><span style="background:#eef2ff; color:#6366f1; padding:2px 8px; border-radius:4px; font-weight:600;">${entry.eligibility || '-'}</span></td>
+                <td style="padding:12px;">
+                    <button onclick="deleteStartingEntryJS('${entry.id}')" style="background:none; border:none; color:#ef4444; cursor:pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.error('Failed to load starting list:', e);
+    }
+}
 
-// Initial Setup for SS Selector (if on Timing page)
+async function addStartingEntry() {
+    const viewId = document.getElementById('view_id_hidden')?.value;
+    if (!viewId) return;
+    
+    const ns = document.getElementById('start_ns').value;
+    const driver = document.getElementById('start_driver').value;
+    const codriver = document.getElementById('start_codriver').value;
+    const car = document.getElementById('start_car').value;
+    const eligibility = document.getElementById('start_eligibility').value;
+    
+    if (!ns || !driver) {
+        alert("NS and Driver are required!");
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/starting_list/upsert', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                race_id: viewId,
+                ns: ns,
+                driver: driver,
+                co_driver: codriver,
+                car: car,
+                eligibility: eligibility
+            })
+        });
+        if (res.ok) {
+            // Clear inputs
+            ['start_ns', 'start_driver', 'start_codriver', 'start_car', 'start_eligibility'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            refreshStartingList();
+        }
+    } catch (e) {
+        console.error('Failed to add entry:', e);
+    }
+}
+
+async function handleImportFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const viewId = document.getElementById('view_id_hidden')?.value;
+    if (!viewId) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        const entries = [];
+
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            
+            // Format: NS <tab/spaces> Driver <tab/spaces> Co-Driver <tab/spaces> Car <tab/spaces> Eligibility
+            // Kita coba pakai pemisahan TAB dulu, jika gagal coba spasi ganda
+            let parts = trimmed.split('\t');
+            if (parts.length < 3) {
+                // Mencoba memisahkan berdasarkan minimal 2 spasi agar nama driver tidak terpotong
+                parts = trimmed.split(/\s{2,}/);
+            }
+
+            if (parts.length >= 3) {
+                entries.push({
+                    ns: parts[0]?.trim(),
+                    driver: parts[1]?.trim(),
+                    co_driver: parts[2]?.trim(),
+                    car: parts[3]?.trim() || '-',
+                    eligibility: parts[4]?.trim() || '-'
+                });
+            }
+        });
+
+        if (entries.length > 0) {
+            try {
+                const res = await fetch('/api/starting_list/bulk_import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ race_id: viewId, entries: entries })
+                });
+                if (res.ok) {
+                    alert(`Successfully imported ${entries.length} entries!`);
+                    refreshStartingList();
+                }
+            } catch (err) {
+                console.error("Bulk Import failed:", err);
+            }
+        } else {
+            alert("No valid data found in file. Format: NS [TAB] Driver [TAB] Co-Driver [TAB] Car [TAB] Eligibility");
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // Reset input
+}
+
+async function deleteStartingEntryJS(id) {
+    if (!confirm("Are you sure?")) return;
+    try {
+        const res = await fetch('/api/starting_list/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id: id })
+        });
+        if (res.ok) refreshStartingList();
+    } catch (e) {
+        console.error('Failed to delete entry:', e);
+    }
+}
+
+// Global initialization
 document.addEventListener('DOMContentLoaded', () => {
+    // Initial call for HQ page
+    if (document.getElementById('startingListBody')) {
+        refreshStartingList();
+    }
+
+    // Polling only on pages with live data
+    if (document.getElementById('liveEventsBody') || (document.getElementById('timingEventsBody'))) {
+        setInterval(fetchEvents, 2000);
+        fetchEvents();
+    }
+
+    // SS Selector initialization
     const ssSelector = document.getElementById('ssSelector');
     if (ssSelector) {
-        // Load saved SS
         const savedSS = localStorage.getItem('current_ss');
         if (savedSS) ssSelector.value = savedSS;
 
-        // Save on change
         ssSelector.addEventListener('change', async (e) => {
             const ss = e.target.value;
             localStorage.setItem('current_ss', ss);
@@ -311,16 +593,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ ss: ss })
                 });
-                // Auto Upload: Sync unsent records for this SS
                 await fetch('/api/events/sync_ss', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ ss: ss })
                 });
                 justSwitchedSS = true; 
-                fetchEvents(); // Refresh visually
+                fetchEvents();
             } catch (err) {
-                console.error("Failed to update SS on server:", err);
+                console.error("Failed to update SS:", err);
             }
         });
     }
@@ -362,28 +643,6 @@ async function connectSerial() {
     } catch (e) {
         alert("Connection error");
     }
-}
-
-async function getKoordinat(btnElement) {
-    const originalHTML = btnElement.innerHTML;
-    btnElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wait...';
-    btnElement.disabled = true;
-    
-    try {
-        const res = await fetch('/api/get_location', { method: 'POST' });
-        const data = await res.json();
-        
-        if (res.ok) {
-            document.getElementById('koordinatInput').value = data.location;
-        } else {
-            alert("Error: " + (data.error || "Failed to get location"));
-        }
-    } catch(e) {
-        alert("Connection error fetching location");
-    }
-    
-    btnElement.innerHTML = originalHTML;
-    btnElement.disabled = false;
 }
 
 async function clearTable() {
@@ -494,5 +753,54 @@ async function sendManual(command) {
         fetchEvents(); // Immediately fetch to update the log
     } catch (e) {
         console.error('Failed to send manual command:', e);
+    }
+}
+async function syncDatabase() {
+    const btn = document.getElementById('syncDbBtn');
+    if (!btn) return;
+    
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+    
+    try {
+        const res = await fetch('/api/sync_db', { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok) {
+            alert("Success: " + data.message);
+            location.reload();
+        } else {
+            alert("Sync Failed: " + (data.message || "Unknown error"));
+        }
+    } catch (e) {
+        alert("Connection error during sync");
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+async function pullEvents() {
+    if (!confirm("Tarik daftar event terbaru dari HQ Cloud?")) return;
+    
+    try {
+        const btn = document.querySelector('button[onclick="pullEvents()"]');
+        btn.disabled = true;
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pulling...';
+        
+        const response = await fetch('/api/pull_cloud_events');
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            location.reload(); 
+        } else {
+            alert("Gagal: " + result.message);
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    } catch (err) {
+        alert("Error: " + err.message);
     }
 }

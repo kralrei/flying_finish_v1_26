@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TC - Kralrei FF 26-v1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-flag-checkered"></i> Active Event</h2>
+                <div class="active-event-name" title="{{ event.get('Event_Name') }}">{{ event.get('Event_Name') or 'No Event Active' }}</div>
+                <div id="sidebarClock" class="sidebar-clock">00:00:00</div>
+                <div class="status" style="margin-top: 15px; justify-content: center;">
+                    <span id="connectionStatus" class="{% if connected %}connected{% else %}disconnected{% endif %}">
+                        <i class="fas fa-wifi"></i> {% if connected %}Connected{% else %}Disconnected{% endif %}
+                    </span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+                <a href="/hq"><i class="fas fa-satellite"></i> <span>HQ</span></a>
+                <a href="/tc" class="active"><i class="fas fa-hourglass-start"></i> <span>TC</span></a>
+                <a href="/start"><i class="fas fa-flag-checkered"></i> <span>Start</span></a>
+                <a href="/flying_finish"><i class="fas fa-stopwatch"></i> <span>Flying Finish</span></a>
+                <a href="/stop"><i class="fas fa-hand-paper"></i> <span>Finish Stop</span></a>
+                <a href="/park"><i class="fas fa-wrench"></i> <span>Service Park</span></a>
+                <a href="/results"><i class="fas fa-trophy"></i> <span>Results</span></a>
+                <a href="/settings"><i class="fas fa-cog"></i> <span>Settings</span></a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+                <h1 style="color: #2c3e50; margin: 0;"><i class="fas fa-hourglass-start"></i> Time Control</h1>
+                <div class="view-controls" style="display: flex; gap: 15px; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-weight: bold; color: #2c3e50;">SS:</label>
+                        <select id="ssSelector" style="padding: 8px 15px; border: 2px solid #dee2e6; border-radius: 8px; font-weight: bold; background: white;">
+                            {% set total_ss = (settings.get('Total_SS') or settings.get('total_ss') or 10) | int %}
+                            {% for i in range(1, total_ss + 1) %}
+                            <option value="{{ i }}" {% if settings and settings.get('current_ss')|string == i|string %}selected{% endif %}>{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </header>
+            <div class="dashboard-grid" style="grid-template-columns: 1fr;">
+                <div class="dashboard-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #2c3e50; margin: 0;"><i class="fas fa-list"></i> TC Log (Live)</h3>
+                        <div class="sync-indicator" style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.8rem; font-weight: 800; color: #64748b;">SYNC</span>
+                            <div class="sync-dot" style="width: 12px; height: 12px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); transition: all 0.3s ease;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>SS</th>
+                                    <th>NO. START (NS)</th>
+                                    <th>WAKTU (TIMING)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timingEventsBody">
+                                <!-- Data dari HP & Cloud akan muncul di sini -->
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: #94a3b8; padding: 40px;">
+                                        <i class="fas fa-spinner fa-spin"></i> Menunggu data dari Cloud...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
+</body>
+</html>

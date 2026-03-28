@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HQ - Kralrei FF 26-v1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-flag-checkered"></i> Active Event</h2>
+                <div class="active-event-name" title="{{ event.get('Event_Name') }}">{{ event.get('Event_Name') or 'No Event Active' }}</div>
+                <div id="sidebarClock" class="sidebar-clock">00:00:00</div>
+                <div class="status" style="margin-top: 15px; justify-content: center;">
+                    <span id="connectionStatus" class="{% if connected %}connected{% else %}disconnected{% endif %}">
+                        <i class="fas fa-wifi"></i> {% if connected %}Connected{% else %}Disconnected{% endif %}
+                    </span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+                <a href="/hq" class="active"><i class="fas fa-satellite"></i> <span>HQ</span></a>
+                <a href="/tc"><i class="fas fa-hourglass-start"></i> <span>TC</span></a>
+                <a href="/start"><i class="fas fa-flag-checkered"></i> <span>Start</span></a>
+                <a href="/flying_finish"><i class="fas fa-stopwatch"></i> <span>Flying Finish</span></a>
+                <a href="/stop"><i class="fas fa-hand-paper"></i> <span>Finish Stop</span></a>
+                <a href="/park"><i class="fas fa-wrench"></i> <span>Service Park</span></a>
+                <a href="/results"><i class="fas fa-trophy"></i> <span>Results</span></a>
+                <a href="/settings"><i class="fas fa-cog"></i> <span>Settings</span></a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <h1 style="color: #2c3e50;"><i class="fas fa-satellite"></i> HQ Control</h1>
+            </header>
+
+            <form id="hqSetupForm" method="POST" action="/hq">
+                <div class="dashboard-grid">
+                    <div class="dashboard-card" style="grid-column: span 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="color: #6366f1; margin: 0;"><i class="fas fa-edit"></i> Editing Event</h3>
+                            <button type="button" class="btn primary" onclick="showNewEventModal()" style="padding: 8px 15px; font-size: 0.85rem; background: #10b981; border: none;"><i class="fas fa-plus-circle"></i> + CREATE NEW EVENT</button>
+                        </div>
+
+                        <!-- Modal New Event (Popup) -->
+                        <div id="newEventModal" class="modal-overlay">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h2><i class="fas fa-flag-checkered"></i> Create New Event</h3>
+                                </div>
+                                <div class="modal-form">
+                                    <div>
+                                        <label>Event Name:</label>
+                                        <input type="text" id="modalEventName" placeholder="Race Name 2026">
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                                        <div>
+                                            <label>Start Date:</label>
+                                            <input type="date" id="modalStartDate">
+                                        </div>
+                                        <div>
+                                            <label>End Date:</label>
+                                            <input type="date" id="modalEndDate">
+                                        </div>
+                                        <div style="width: 80px;">
+                                            <label>Total SS:</label>
+                                            <input type="number" id="modalTotalSS" value="1" min="1" max="50">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label>Location / Track:</label>
+                                        <input type="text" id="modalLocation" placeholder="Circuit / City">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn secondary" onclick="hideNewEventModal()">Cancel</button>
+                                    <button type="button" class="btn primary" onclick="submitNewEvent()">Create Event</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if message %}
+                        <div id="saveMessage" style="background: #e6fced; color: #0d8225; padding: 10px; margin-bottom: 15px; border-radius: 4px;">{{ message }}</div>
+                        {% endif %}
+                        
+                        <div id="eventSelection" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1.5px solid rgba(99, 102, 241, 0.2);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <label style="margin: 0; font-weight: 800; color: #6366f1; font-size: 0.95rem;">Active Event (Select to View Detail):</label>
+                                <button type="button" class="btn secondary" onclick="pullEvents()" style="padding: 6px 15px; font-size: 0.75rem; background: #818cf8; color: white;">
+                                    <i class="fas fa-sync"></i> Pull Cloud
+                                </button>
+                            </div>
+                            <select onchange="viewEventDetails(this.value)" style="width: 100%; padding: 14px; border: 2px solid #6366f1; border-radius: 12px; background: #f8fafc; font-weight: 700; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                                <option value="">-- View All Events --</option>
+                                {% for evt in all_events %}
+                                <option value="{{ evt.Race_ID }}" {% if settings.get('view_id')|string == evt.Race_ID|string %}selected{% endif %}>
+                                    {% if settings.get('active_race_id')|string == evt.Race_ID|string %}[ACTIVE] {% endif %}
+                                    {{ evt.Event_Name or '(Unnamed)' }} [#{{ evt.Race_ID[:8] }}]
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <form method="POST" id="editEventForm">
+                            <input type="hidden" name="target_id" value="{{ settings.get('view_id') }}">
+                            <div id="eventFields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div style="grid-column: span 2;">
+                                    <label style="display:block; margin-bottom:5px; font-weight:bold; color: #64748b;">Event Name:</label>
+                                    <input type="text" name="event_name" id="eventNameInput" 
+                                           value="{{ '' if settings.get('Event_Name')|lower == 'none' else settings.get('Event_Name', '') }}" 
+                                           style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 10px; background: #f1f5f9; font-weight: 700;" disabled>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; grid-column: span 2;">
+                                    <div>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold; color: #64748b;">Start Date:</label>
+                                        <input type="date" name="start_date" id="startDateInput" 
+                                               value="{{ '' if settings.get('Start_Date')|lower == 'none' else settings.get('Start_Date', '') }}" 
+                                               style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 10px; background: #f1f5f9; font-weight: 700;" disabled>
+                                    </div>
+                                    <div>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold; color: #64748b;">End Date:</label>
+                                        <input type="date" name="end_date" id="endDateInput" 
+                                               value="{{ '' if settings.get('End_Date')|lower == 'none' else settings.get('End_Date', '') }}" 
+                                               style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 10px; background: #f1f5f9; font-weight: 700;" disabled>
+                                    </div>
+                                    <div>
+                                        <label style="display:block; margin-bottom:5px; font-weight:bold; color: #64748b;">Total SS:</label>
+                                        <input type="number" name="total_ss" id="totalSsInput" 
+                                               value="{{ settings.get('total_ss', 1) }}" 
+                                               style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 10px; background: #f1f5f9; font-weight: 700;" disabled min="1" max="50">
+                                    </div>
+                                </div>
+                                <div style="grid-column: span 2;">
+                                    <label style="display:block; margin-bottom:5px; font-weight:bold; color: #64748b;">Location / Track:</label>
+                                    <input type="text" name="koordinat" id="koordinatInput" 
+                                           value="{{ '' if settings.get('Koordinat')|lower == 'none' else settings.get('Koordinat', '') }}" 
+                                           style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 10px; background: #f1f5f9; font-weight: 700;" disabled>
+                                </div>
+                            </div>
+                            
+                            <!-- Management Buttons -->
+                            <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 15px; margin-top: 30px;">
+                                <!-- Activate / Deactivate Toggle -->
+                                <div id="actBtnContainer">
+                                    {% if settings.get('is_active_view') %}
+                                    <button type="button" class="btn danger" onclick="toggleActivation('{{ settings.get('view_id') }}', false)" style="width: 100%; height: 50px; font-size: 1rem; border: none; background: #ef4444;">
+                                        <i class="fas fa-power-off"></i> DEACTIVATE EVENT
+                                    </button>
+                                    {% else %}
+                                    <button type="button" class="btn primary" onclick="toggleActivation('{{ settings.get('view_id') }}', true)" style="width: 100%; height: 50px; font-size: 1.1rem; border: none; background: #10b981;">
+                                        <i class="fas fa-play"></i> ACTIVATE EVENT
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Edit Button -->
+                                <button type="button" id="editBtn" class="btn secondary" onclick="enableHqEditing()" style="width: 100%; height: 50px; font-size: 0.95rem; border: 2px solid #6366f1; color: #6366f1; background: white;">
+                                    <i class="fas fa-edit"></i> EDIT DETAIL
+                                </button>
+                                
+                                <!-- Delete Button (Only for inactive) -->
+                                <div style="grid-column: span 2;">
+                                    {% if not settings.get('is_active_view') %}
+                                    <button type="button" class="btn" onclick="deleteEvent('{{ settings.get('view_id') }}')" style="width: 100%; margin-top: 10px; background: none; border: 1px solid #ef4444; color: #ef4444; height: 40px; font-size: 0.8rem; box-shadow: none;">
+                                        <i class="fas fa-trash"></i> DELETE THIS EVENT PERMANENTLY
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <button type="submit" id="saveEventBtn" class="btn primary" style="width: 100%; margin-top: 15px; display: none; background: #6366f1; border: none; height: 55px; font-size: 1.2rem;">
+                                <i class="fas fa-save"></i> SAVE CHANGES
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <h3 style="color: #2c3e50; margin-bottom: 20px;">Mission Control</h3>
+                        <p style="color: #64748b;">Monitoring all Special Stages and station status.</p>
+                        <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 15px;">
+                            <div style="background: rgba(99, 102, 241, 0.1); padding: 15px; border-radius: 12px; border-left: 5px solid #6366f1;">
+                                <h4 style="color: #6366f1;">System Status</h4>
+                                <p style="font-size: 0.9rem;">Cloud Sync: <span style="font-weight: bold; color: #10b981;">Active</span></p>
+                                <p style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">Active Race ID:<br> <strong>{{ settings.get('active_race_id') }}</strong></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Starting List Card -->
+                    <div class="dashboard-card" style="grid-column: span 2;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="color: #6366f1;"><i class="fas fa-id-card"></i> Starting List</h3>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="file" id="startingListFile" accept=".txt" style="display: none;" onchange="handleImportFile(event)">
+                                <button type="button" class="btn secondary" onclick="document.getElementById('startingListFile').click()" style="padding: 6px 15px; font-size: 0.8rem; background: #6366f1; color: white; border: none;">
+                                    <i class="fas fa-file-import"></i> IMPORT LIST (.TXT)
+                                </button>
+                                <button type="button" class="btn secondary" onclick="refreshStartingList()" style="padding: 6px 15px; font-size: 0.8rem;">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                                <thead>
+                                    <tr style="background: #f1f5f9; border-bottom: 2px solid #e2e8f0; text-align: left;">
+                                        <th style="padding: 12px;">No</th>
+                                        <th style="padding: 12px;">NS</th>
+                                        <th style="padding: 12px; min-width: 120px;">Driver</th>
+                                        <th style="padding: 12px; min-width: 120px;">Co-Driver</th>
+                                        <th style="padding: 12px;">Car</th>
+                                        <th style="padding: 12px;">ELIGIBILITY</th>
+                                        <th style="padding: 12px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="startingListBody">
+                                    <tr><td colspan="7" style="text-align:center; padding: 20px; color: #94a3b8;">Loading drivers...</td></tr>
+                                </tbody>
+                                <tfoot style="background: rgba(99, 102, 241, 0.03);">
+                                    <tr>
+                                        <td style="padding: 10px;">#</td>
+                                        <td style="padding: 10px;"><input type="text" id="start_ns" style="width: 50px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"></td>
+                                        <td style="padding: 10px;"><input type="text" id="start_driver" placeholder="Driver" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"></td>
+                                        <td style="padding: 10px;"><input type="text" id="start_codriver" placeholder="Co-Driver" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"></td>
+                                        <td style="padding: 10px;"><input type="text" id="start_car" placeholder="Car" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"></td>
+                                        <td style="padding: 10px;"><input type="text" id="start_eligibility" placeholder="M1" style="width: 60px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;"></td>
+                                        <td style="padding: 10px;"><button type="button" class="btn primary" onclick="addStartingEntry()" style="padding: 8px 12px; font-size: 0.8rem;"><i class="fas fa-plus"></i></button></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </main>
+    </div>
+    <input type="hidden" id="view_id_hidden" value="{{ settings.get('view_id') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
+</body>
+</html>

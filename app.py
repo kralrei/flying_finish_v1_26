@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
 import sqlite3
 from flask_socketio import SocketIO, emit
 import database
@@ -79,6 +79,8 @@ class SerialManager:
                         line, buffer = buffer.split(';', 1)
                         if line.strip():
                             self.process_message(line.strip())
+                else:
+                    time.sleep(0.01) # Mencegah 100% CPU usage saat idle
             except Exception as e:
                 print(f"Read error: {e}")
                 time.sleep(0.1)
@@ -166,30 +168,39 @@ def update_ss_api():
         return jsonify({'status': 'success'})
     return jsonify({'status': 'error'}), 400
 
+@app.route('/api/sync_db', methods=['POST'])
+def sync_db_api():
+    success, message = database.sync_sqlite_to_postgres()
+    if success:
+        return jsonify({'status': 'success', 'message': message})
+    else:
+        return jsonify({'status': 'error', 'message': message}), 500
+
 def get_current_state():
-    settings = database.get_settings()
-    active_race_id = settings.get('active_race_id')
-    event_details = database.get_event_details(active_race_id) or {}
+    state = database.get_full_state()
     race_setup = get_race_setup()
-    stats = database.get_stats(active_race_id)
-    return {
-        'settings': settings,
-        'event': event_details,
-        'race_setup': race_setup,
-        'stats': stats,
-        'active_race_id': active_race_id
-    }
+    
+    # Ensure event is a dict
+    if state.get('event') is None:
+        state['event'] = {}
+        
+    state['race_setup'] = race_setup
+    
+    # Merge for easier template access (settings will have everything)
+    # We keep the originals too for backward compatibility in templates that use event.get
+    state['settings'] = {**state['settings'], **state['event'], **state['race_setup']}
+    
+    return state
 
 @app.route('/')
 def index():
     ports = [port.device for port in serial.tools.list_ports.comports()]
     state = get_current_state()
-    # Merged data for template
-    merged_settings = {**state['settings'], **state['event'], **state['race_setup']}
     return render_template('index.html', 
                          ports=ports, 
                          connected=serial_mgr.is_connected,
-                         settings=merged_settings,
+                         settings=state['settings'],
+                         event=state['event'],
                          stats=state['stats'])
 
 @app.route('/connect', methods=['POST'])
@@ -228,17 +239,76 @@ def manual_command():
     serial_mgr.send_command(command, timestamp)
     return jsonify({'status': 'Command sent'})
 
-@app.route('/events')
-def events():
+@app.route('/hq', methods=['GET', 'POST'])
+def hq():
+    message = request.args.get('message')
+    state = get_current_state()
+    active_id = state['active_race_id']
+    
+    # Pendukung Viewer: Pilih event mana yang sedang ditampilkan (default: active_id)
+    view_id = request.args.get('view_id') or active_id
+    view_event = database.get_event_by_id(view_id)
+    
+    # Jika event ditemukan, gunakan datanya untuk mengisi form
+    if view_event:
+        state['settings'].update({
+            'Event_Name': view_event.get('Event_Name'),
+            'Start_Date': view_event.get('Start_Date'),
+            'End_Date': view_event.get('End_Date'),
+            'Koordinat': view_event.get('Koordinat'),
+            'total_ss': view_event.get('Total_SS'),
+            'view_id': view_id,
+            'is_active_view': (str(view_id) == str(active_id))
+        })
+    
+    if request.method == 'POST':
+        data = request.form
+        target_id = data.get('target_id') or active_id
+        
+        database.update_event_details(target_id, {
+            'event_name': data.get('event_name', '').strip() or f"Event {target_id[:5]}",
+            'start_date': data.get('start_date', '').strip() or 'none',
+            'end_date': data.get('end_date', '').strip() or 'none',
+            'koordinat': data.get('koordinat', '').strip() or 'none',
+            'total_ss': int(data.get('total_ss') or 1)
+        })
+        
+        return redirect(url_for('hq', view_id=target_id, message='Changes saved successfully!'))
+    
+    all_events = database.get_all_events()
+    return render_template('hq.html', message=message, all_events=all_events, **state)
+
+@app.route('/tc')
+def tc():
+    state = get_current_state()
+    return render_template('tc.html', **state)
+
+@app.route('/start')
+def start():
+    state = get_current_state()
+    return render_template('start.html', **state)
+
+@app.route('/flying_finish')
+def flying_finish():
     state = get_current_state()
     current_ss = state['settings'].get('current_ss', '1')
     timings = database.get_timings(state['active_race_id'], limit=100, ss=current_ss)
-    merged_settings = {**state['settings'], **state['event'], **state['race_setup']}
-    return render_template('events.html', 
-                         events=timings, 
-                         settings=merged_settings,
-                         connected=serial_mgr.is_connected,
-                         active_race_id=state['active_race_id'])
+    return render_template('events.html', events=timings, **state)
+
+@app.route('/stop')
+def stop():
+    state = get_current_state()
+    return render_template('stop.html', **state)
+
+@app.route('/park')
+def park():
+    state = get_current_state()
+    return render_template('park.html', **state)
+
+@app.route('/results')
+def results():
+    state = get_current_state()
+    return render_template('result.html', **state)
 
 @app.route('/api/events')
 def api_events():
@@ -246,6 +316,51 @@ def api_events():
     ss = request.args.get('ss')
     timings = database.get_timings(state['active_race_id'], limit=500, ss=ss)
     return jsonify(timings)
+
+@app.route('/api/events/delete', methods=['POST'])
+def api_delete_event():
+    data = request.json
+    race_id = data.get('event_id')
+    state = get_current_state()
+    if race_id == state['active_race_id']:
+        return jsonify({'error': 'Cannot delete the ACTIVE event. Deactivate it first.'}), 400
+    
+    if database.delete_event(race_id):
+        return jsonify({'status': 'success'})
+    return jsonify({'error': 'Delete failed'}), 500
+
+@app.route('/api/starting_list/<race_id>')
+def api_get_starting_list(race_id):
+    entries = database.get_starting_list(race_id)
+    return jsonify(entries)
+
+@app.route('/api/starting_list/upsert', methods=['POST'])
+def api_upsert_starting_entry():
+    data = request.json
+    race_id = data.get('race_id')
+    if not race_id:
+        return jsonify({'error': 'No race_id provided'}), 400
+    entry_id = database.upsert_starting_entry(race_id, data)
+    return jsonify({'status': 'success', 'id': entry_id})
+
+@app.route('/api/starting_list/bulk_import', methods=['POST'])
+def api_bulk_import_starting_entries():
+    data = request.json
+    race_id = data.get('race_id')
+    entries = data.get('entries')
+    if not race_id or not entries:
+        return jsonify({'error': 'No race_id or entries provided'}), 400
+    
+    database.bulk_upsert_starting_entries(race_id, entries)
+    return jsonify({'status': 'success'})
+
+@app.route('/api/starting_list/delete', methods=['POST'])
+def api_delete_starting_entry():
+    data = request.json
+    entry_id = data.get('id')
+    if database.delete_starting_entry(entry_id):
+        return jsonify({'status': 'success'})
+    return jsonify({'error': 'Delete failed'}), 500
 
 @app.route('/api/events/clear', methods=['POST'])
 def api_events_clear():
@@ -255,7 +370,8 @@ def api_events_clear():
 
 @app.route('/api/events/new_event', methods=['POST'])
 def api_new_event():
-    new_id = database.create_new_event()
+    data = request.json or {}
+    new_id = database.create_new_event(data)
     return jsonify({'status': 'success', 'new_race_id': new_id})
 
 @app.route('/api/events/switch', methods=['POST'])
@@ -390,14 +506,14 @@ def settings():
         message = 'Setup Event saved!'
         state = get_current_state()
     
-    merged_settings = {**state['settings'], **state['event'], **state['race_setup']}
     ports = [port.device for port in serial.tools.list_ports.comports()]
     current_port = serial_mgr.serial_port.port if serial_mgr.is_connected and serial_mgr.serial_port else None
     
     all_events = database.get_all_events()
     
     return render_template('settings.html', 
-                         settings=merged_settings, 
+                         settings=state['settings'], 
+                         event=state['event'],
                          message=message,
                          ports=ports,
                          connected=serial_mgr.is_connected,
@@ -410,7 +526,12 @@ def send_static(path):
 
 def run_flask():
     # Gunakan socketio.run agar pengiriman real-time bekerja
-    socketio.run(app, host='127.0.0.1', port=5000, debug=False, use_reloader=False)
+    socketio.run(app, host='127.0.0.1', port=5000, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
+
+@app.route('/api/pull_cloud_events')
+def api_pull_cloud_events():
+    success, message = database.pull_events_from_cloud()
+    return jsonify({'success': success, 'message': message})
 
 if __name__ == '__main__':
     database.init_db()
