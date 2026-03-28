@@ -78,9 +78,25 @@
             
             // App state
             const [apiUrl, setApiUrl] = useState(localStorage.getItem('ff_api_url') || 'https://ff-station.onrender.com');
+            const [eventName, setEventName] = useState('FF FIELD');
             const [showSettings, setShowSettings] = useState(false);
             const [loading, setLoading] = useState(false);
             const [message, setMessage] = useState('');
+
+            // Fetch Event Name on Load
+            useEffect(() => {
+                fetchEventDetails();
+            }, [apiUrl]);
+
+            const fetchEventDetails = async () => {
+                try {
+                    const response = await fetch(`${apiUrl}/api/event_details`);
+                    const data = await response.json();
+                    if (data.event_name) setEventName(data.event_name.toUpperCase());
+                } catch (e) {
+                    console.error("Failed to fetch event name:", e);
+                }
+            };
 
             const handleSave = async () => {
                 if(!ns || !jam) {
@@ -131,7 +147,7 @@
                              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
                                 <i className="fas fa-satellite-dish text-white text-xs"></i>
                              </div>
-                             <h1 className="text-xl font-bold tracking-tight racing-font text-white">FF FIELD</h1>
+                             <h1 className="text-xl font-bold tracking-tight racing-font text-white">{eventName}</h1>
                         </div>
                         <button 
                             onClick={() => setShowSettings(true)}

@@ -23,6 +23,30 @@ def index():
 def status():
     return jsonify({'status': 'online', 'database': 'connected'})
 
+@app.route('/api/event_details', methods=['GET'])
+def get_event_details():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # 1. Get Active Race ID
+        cur.execute("SELECT value FROM settings WHERE key = 'active_race_id'")
+        res = cur.fetchone()
+        race_id = res['value'] if res else None
+        
+        if not race_id:
+            return jsonify({'event_name': 'No Event Active'})
+            
+        # 2. Get Event Name
+        cur.execute("SELECT event_name FROM events WHERE race_id = %s", (race_id,))
+        event = cur.fetchone()
+        
+        cur.close()
+        conn.close()
+        return jsonify({'event_name': event['event_name'] if event else 'Untitled Event'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 @app.route('/api/save_timing', methods=['POST'])
 def save_timing():
     data = request.json
