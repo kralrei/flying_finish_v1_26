@@ -246,7 +246,7 @@ def hq():
     active_id = state['active_race_id']
     
     # Pendukung Viewer: Pilih event mana yang sedang ditampilkan (default: active_id)
-    view_id = request.args.get('view_id') or active_id
+    view_id = request.args.get('view_id') or active_idad
     view_event = database.get_event_by_id(view_id)
     
     # Jika event ditemukan, gunakan datanya untuk mengisi form

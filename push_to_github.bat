@@ -3,30 +3,31 @@ echo ========================================
 echo   SYNCING KRALREI FLYING FINISH 2026
 echo ========================================
 
-:: 1. Berikan label untuk perubahan Anda
-set /p commit_msg="Masukkan pesan update (contoh: Perbaikan bug): "
-
-:: Jika pesan kosong, beri default
-if "%commit_msg%"=="" set commit_msg="Update rutin"
+:: 1. Ambil pesan dari user
+set /p commit_msg="Masukkan pesan update: "
+if "%commit_msg%"=="" set commit_msg=Update rutin
 
 echo.
-echo Sedang menyiapkan file...
+echo Menyiapkan file...
 git add .
 
 echo.
-echo Sedang membuat label perubahan...
+echo Membuat label perubahan...
+:: Gunakan tanda kutip yang benar agar tidak error 'pathspec'
 git commit -m "%commit_msg%"
 
 echo.
-echo Sedang menarik data terbaru dari GitHub...
-git pull --rebase
+echo Menarik data terbaru dari GitHub...
+:: Tarik paksa data terbaru dari GitHub ke laptop
+git pull --rebase origin main
 
 echo.
-echo Sedang mengunggah ke GitHub...
-git push
+echo Mengunggah ke GitHub...
+:: Kirim semua perubahan ke GitHub
+git push origin main
 
 echo.
 echo ========================================
-echo   SELESAI! Update berhasil diunggah.
+echo   SELESAI! Laptop dan HP kini sinkron.
 echo ========================================
 pause
