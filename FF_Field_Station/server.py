@@ -34,8 +34,8 @@ def get_event_details():
         res = cur.fetchone()
         race_id = res['value'] if res else None
         
-        if not race_id:
-            return jsonify({'event_name': 'No Event Active'})
+        if not race_id or race_id == '0':
+            return jsonify({'event_name': 'WAITING FOR EVENT...'})
             
         # 2. Get Event Name
         cur.execute("SELECT event_name FROM events WHERE race_id = %s", (race_id,))
@@ -43,7 +43,7 @@ def get_event_details():
         
         cur.close()
         conn.close()
-        return jsonify({'event_name': event['event_name'] if event else 'Untitled Event'})
+        return jsonify({'event_name': event['event_name'] if event and event['event_name'] else f'RACE ID: {race_id[:8]}'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
