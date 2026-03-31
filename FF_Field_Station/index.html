@@ -100,6 +100,8 @@
                 }
             };
 
+            const [history, setHistory] = useState(JSON.parse(localStorage.getItem('ff_history') || '[]'));
+
             const handleTimeInputChange = (val) => {
                 let formatted = val.replace(/[^0-9:]/g, '');
                 if (formatted.length === 4 && !formatted.includes(':')) {
@@ -140,6 +142,12 @@
                     const res = await response.json();
                     if(res.status === 'success') {
                         setMessage('Data Terkirim!');
+                        
+                        // Update History
+                        const newHistory = [ns, ...history.slice(0, 4)];
+                        setHistory(newHistory);
+                        localStorage.setItem('ff_history', JSON.stringify(newHistory));
+
                         setTimeout(() => setMessage(''), 3000);
                         handleClear();
                     } else {
@@ -173,7 +181,7 @@
                         </div>
                         <button 
                             onClick={() => setShowSettings(true)}
-                            className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400 border border-indigo-400/20 active:scale-90 transition-all"
+                            className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400 border border-indigo-400/20 active:scale-90 transition-all font-bold"
                         >
                             <i className="fas fa-cog"></i>
                         </button>
@@ -196,61 +204,74 @@
                     </div>
 
                     <div className="space-y-6 flex-grow overflow-y-auto pb-4">
-                        {/* SS & NS Row */}
+                        
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-indigo-300/60 uppercase tracking-widest px-1">Special Stage</label>
-                                <select 
-                                    value={ss} 
-                                    onChange={(e) => setSS(e.target.value)}
-                                    className="w-full text-lg font-bold bg-slate-800/50 border-white/10"
+                            {/* Column LEFT: SS & Capture */}
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold text-indigo-300/60 uppercase tracking-widest px-1">Special Stage</label>
+                                    <select 
+                                        value={ss} 
+                                        onChange={(e) => setSS(e.target.value)}
+                                        className="w-full text-lg font-bold bg-slate-800/50 border-white/10"
+                                    >
+                                        {[...Array(totalSS)].map((_, i) => (
+                                            <option key={i+1} value={i+1}>SS {i+1}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <button 
+                                    onClick={captureNow}
+                                    className={`w-full py-8 rounded-3xl border-2 border-dashed border-indigo-500/30 flex flex-col items-center justify-center gap-2 active:bg-indigo-500/20 active:scale-[0.98] transition-all group`}
                                 >
-                                    {[...Array(totalSS)].map((_, i) => (
-                                        <option key={i+1} value={i+1}>SS {i+1}</option>
-                                    ))}
-                                </select>
+                                    <i className="fas fa-stopwatch text-2xl text-indigo-400 group-active:scale-125 transition-transform"></i>
+                                    <span className="font-black text-indigo-400 tracking-tighter text-[10px] uppercase">TAP TO<br/>CAPTURE</span>
+                                </button>
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-xs font-bold text-indigo-300/60 uppercase tracking-widest px-1">Car Number (NS)</label>
-                                <input 
-                                    type="number" 
-                                    pattern="\d*"
-                                    placeholder="000"
-                                    value={ns}
-                                    onChange={(e) => setNS(e.target.value)}
-                                    className="w-full text-2xl font-bold racing-font text-center bg-slate-800/50 border-white/10"
-                                />
+
+                            {/* Column RIGHT: NS & RECENT CARS */}
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-bold text-indigo-300/60 uppercase tracking-widest px-1">Car Number (NS)</label>
+                                    <input 
+                                        type="number" 
+                                        pattern="\d*"
+                                        placeholder="000"
+                                        value={ns}
+                                        onChange={(e) => setNS(e.target.value)}
+                                        className="w-full text-2xl font-bold racing-font text-center bg-slate-800/50 border-white/10"
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-2 bg-slate-800/20 rounded-2xl p-2 border border-white/5 h-[105px]">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Recent Cars</label>
+                                    <div className="flex flex-wrap justify-center gap-2 overflow-y-auto">
+                                        {history.length === 0 && <span className="text-[9px] text-slate-600 mt-2 italic">No history</span>}
+                                        {history.map((h, i) => (
+                                            <div key={i} className="bg-slate-700/50 text-indigo-300 text-[10px] font-bold px-2 py-1 rounded-md border border-white/5">#{h}</div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* TAP TO CAPTURE AREA */}
-                        <button 
-                            onClick={captureNow}
-                            className={`w-full py-12 rounded-3xl border-2 border-dashed border-indigo-500/30 flex flex-col items-center justify-center gap-3 active:bg-indigo-500/20 active:scale-[0.98] transition-all group`}
-                        >
-                            <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center group-active:scale-110 transition-transform">
-                                <i className="fas fa-hand-pointer text-3xl text-indigo-400"></i>
-                            </div>
-                            <span className="font-black text-indigo-400 tracking-tighter text-xl">TAP TO CAPTURE NOW</span>
-                            <span className="text-xs text-indigo-300/40 uppercase">Ambil Waktu Detik Ini</span>
-                        </button>
-
-                        {/* Jam Input */}
+                        {/* Jam Input Area */}
                         <div className="flex flex-col gap-2 bg-slate-800/30 p-4 rounded-3xl border border-white/5">
-                            <label className="text-xs font-bold text-indigo-300/60 uppercase tracking-widest px-1 text-center">Manual Time (HH:MM)</label>
+                            <label className="text-[10px] font-bold text-indigo-300/60 uppercase tracking-widest px-1 text-center">Time (HH:MM)</label>
                             <div className="relative">
                                 <input 
                                     type="text" 
                                     placeholder="-- : --"
                                     value={jam}
                                     onChange={(e) => handleTimeInputChange(e.target.value)}
-                                    className="w-full text-4xl font-bold tracking-wider py-6 racing-font text-center bg-transparent border-none"
+                                    className="w-full text-4xl font-bold tracking-wider py-4 racing-font text-center bg-transparent border-none text-white focus:ring-0"
                                 />
                             </div>
                         </div>
 
                         {message && (
-                            <div className="bg-green-500/20 border border-green-500/40 text-green-300 py-3 rounded-xl text-center font-bold animate-pulse">
+                            <div className="bg-green-500/20 border border-green-500/40 text-green-300 py-3 rounded-xl text-center font-bold animate-pulse text-xs">
                                 <i className="fas fa-check-circle mr-2"></i> {message}
                             </div>
                         )}
