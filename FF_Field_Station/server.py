@@ -106,12 +106,12 @@ def get_recent_timing():
         res = cur.fetchone()
         race_id = res['value'] if res else '1'
         
-        # Fetch last 10 entries for this station and SS
+        # Fetch last 9 entries for this station and SS, newest first
         cur.execute("""
             SELECT no_start 
             FROM timing 
             WHERE race_id = %s AND line_status = %s AND ss = %s 
-            ORDER BY time_stamp DESC LIMIT 10
+            ORDER BY id DESC LIMIT 9
         """, (race_id, station_type, ss))
         
         history = cur.fetchall()
