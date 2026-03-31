@@ -265,11 +265,11 @@
                                 </div>
 
                                 <div className="flex flex-col gap-2 bg-slate-800/20 rounded-2xl p-2 border border-white/5 h-[105px]">
-                                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Recent Cars</label>
-                                    <div className="flex flex-wrap justify-center gap-2 overflow-y-auto">
-                                        {history.length === 0 && <span className="text-[9px] text-slate-600 mt-2 italic">None</span>}
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Recent Cars (Grid Order)</label>
+                                    <div className="grid grid-cols-3 gap-2 overflow-y-auto pr-1">
+                                        {history.length === 0 && <span className="col-span-3 text-[9px] text-slate-600 mt-2 italic text-center">None</span>}
                                         {history.map((h, i) => (
-                                            <div key={i} className="bg-slate-700/50 text-indigo-300 text-[10px] font-bold px-2 py-1 rounded-md border border-white/5 animate-in fade-in slide-in-from-right-2 duration-300">#{h}</div>
+                                            <div key={i} className="bg-slate-700/50 text-indigo-300 text-[10px] font-bold py-1 rounded-md border border-white/5 text-center truncate animate-in fade-in zoom-in duration-300">#{h}</div>
                                         ))}
                                     </div>
                                 </div>
