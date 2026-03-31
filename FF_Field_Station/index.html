@@ -126,6 +126,7 @@
                 if (formatted.length === 4 && !formatted.includes(':')) {
                     formatted = `${formatted.substring(0,2)}:${formatted.substring(2,4)}`;
                 }
+                if (formatted.length > 5) return;
                 setJam(formatted);
             };
 
@@ -134,7 +135,7 @@
                     window.navigator.vibrate(60);
                 }
                 const now = new Date();
-                const timeStr = now.toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const timeStr = now.toLocaleTimeString('id-ID', { hour12: false, hour: '2-digit', minute: '2-digit' });
                 setJam(timeStr);
             };
 
