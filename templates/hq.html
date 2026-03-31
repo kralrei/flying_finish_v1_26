@@ -146,11 +146,11 @@
                                 <!-- Activate / Deactivate Toggle -->
                                 <div id="actBtnContainer">
                                     {% if settings.get('is_active_view') %}
-                                    <button type="button" class="btn danger" onclick="toggleActivation('{{ settings.get('view_id') }}', false)" style="width: 100%; height: 50px; font-size: 1rem; border: none; background: #ef4444;">
+                                    <button type="button" class="btn danger" onclick="toggleActivation(document.getElementById('view_id_hidden').value, false)" style="width: 100%; height: 50px; font-size: 1rem; border: none; background: #ef4444;">
                                         <i class="fas fa-power-off"></i> DEACTIVATE EVENT
                                     </button>
                                     {% else %}
-                                    <button type="button" class="btn primary" onclick="toggleActivation('{{ settings.get('view_id') }}', true)" style="width: 100%; height: 50px; font-size: 1.1rem; border: none; background: #10b981;">
+                                    <button type="button" class="btn primary" onclick="toggleActivation(document.getElementById('view_id_hidden').value, true)" style="width: 100%; height: 50px; font-size: 1.1rem; border: none; background: #10b981;">
                                         <i class="fas fa-play"></i> ACTIVATE EVENT
                                     </button>
                                     {% endif %}
@@ -164,7 +164,7 @@
                                 <!-- Delete Button (Only for inactive) -->
                                 <div style="grid-column: span 2;">
                                     {% if not settings.get('is_active_view') %}
-                                    <button type="button" class="btn" onclick="deleteEvent('{{ settings.get('view_id') }}')" style="width: 100%; margin-top: 10px; background: none; border: 1px solid #ef4444; color: #ef4444; height: 40px; font-size: 0.8rem; box-shadow: none;">
+                                    <button type="button" class="btn" onclick="deleteEvent(document.getElementById('view_id_hidden').value)" style="width: 100%; margin-top: 10px; background: none; border: 1px solid #ef4444; color: #ef4444; height: 40px; font-size: 0.8rem; box-shadow: none;">
                                         <i class="fas fa-trash"></i> DELETE THIS EVENT PERMANENTLY
                                     </button>
                                     {% endif %}
@@ -186,17 +186,51 @@
                                 <p style="font-size: 0.9rem;">Cloud Sync: <span style="font-weight: bold; color: #10b981;">Active</span></p>
                                 <p style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">Active Race ID:<br> <strong>{{ settings.get('active_race_id') }}</strong></p>
                             </div>
+                            
+                            <div style="margin-top: 15px;">
+                                <h4 style="color: #2c3e50; font-size: 0.9rem; margin-bottom: 10px;"><i class="fas fa-gavel"></i> Regulation Setup</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                                    <button type="button" class="btn secondary" style="font-size: 0.75rem; padding: 8px; justify-content: center;" onclick="showRegulationModal('Penalty')">
+                                        <i class="fas fa-stopwatch"></i> Penalty
+                                    </button>
+                                    <button type="button" class="btn secondary" style="font-size: 0.75rem; padding: 8px; justify-content: center;" onclick="showRegulationModal('Track')">
+                                        <i class="fas fa-road"></i> Track
+                                    </button>
+                                    <button type="button" class="btn secondary" style="font-size: 0.75rem; padding: 8px; justify-content: center;" onclick="showRegulationModal('Officer')">
+                                        <i class="fas fa-user-shield"></i> Officer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Regulation Modal -->
+                        <div id="regulationModal" class="modal-overlay">
+                            <div class="modal-content" style="max-width: 600px;">
+                                <div class="modal-header">
+                                    <h2 id="modalRegTitle"><i class="fas fa-cog"></i> Regulation Setup</h2>
+                                </div>
+                                <div class="modal-form">
+                                    <input type="hidden" id="modalRegType">
+                                    <div id="regInputsContainer" style="display: flex; flex-direction: column; gap: 15px;">
+                                        <!-- Inputs will be injected here -->
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn secondary" onclick="hideRegulationModal()">Close</button>
+                                    <button type="button" class="btn primary" onclick="saveRegulation()">Save Changes</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Starting List Card -->
                     <div class="dashboard-card" style="grid-column: span 2;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="color: #6366f1;"><i class="fas fa-id-card"></i> Starting List</h3>
+                            <h3 style="color: #6366f1;"><i class="fas fa-id-card"></i> Entry List</h3>
                             <div style="display: flex; gap: 10px;">
                                 <input type="file" id="startingListFile" accept=".txt" style="display: none;" onchange="handleImportFile(event)">
                                 <button type="button" class="btn secondary" onclick="document.getElementById('startingListFile').click()" style="padding: 6px 15px; font-size: 0.8rem; background: #6366f1; color: white; border: none;">
-                                    <i class="fas fa-file-import"></i> IMPORT LIST (.TXT)
+                                    <i class="fas fa-file-import"></i> IMPORT
                                 </button>
                                 <button type="button" class="btn secondary" onclick="refreshStartingList()" style="padding: 6px 15px; font-size: 0.8rem;">
                                     <i class="fas fa-sync-alt"></i> Refresh
@@ -238,6 +272,10 @@
         </main>
     </div>
     <input type="hidden" id="view_id_hidden" value="{{ settings.get('view_id') }}">
+    <script>
+        window.BEEP_ENABLED = "{{ settings.get('beep_sound', 'on') }}" === "on";
+        window.TIME_PRECISION = parseInt("{{ settings.get('time_precision', '3') }}");
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
 </body>

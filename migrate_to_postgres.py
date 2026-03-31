@@ -39,17 +39,24 @@ def migrate():
     sqlite_cur.execute("SELECT * FROM events")
     events = sqlite_cur.fetchall()
     for ev in events:
-        # Map SQLite keys (case-sensitive sometimes) to Postgres columns (lowercase)
-        # SQLite columns are 'Race_ID', 'Event_Name', etc.
-        # We need to use ID because it's a PK
+        # SQLite columns may be 'Race_ID', 'Event_Name', etc.
+        # Postgres columns are lowercase 'race_id', 'event_name', etc.
         pg_cur.execute("""
-            INSERT INTO events (race_id, event_name, start_date, end_date, operator, koordinat, create_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (ev['Race_ID'], ev['Event_Name'], ev['Start_Date'], ev['End_Date'], ev['Operator'], ev['Koordinat'], ev['Create_at']))
+            INSERT INTO events (race_id, event_name, start_date, end_date, operator, koordinat, total_ss, create_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (ev['Race_ID'], ev['Event_Name'], ev['Start_Date'], ev['End_Date'], 
+              ev['Operator'], ev['Koordinat'], ev.get('Total_SS', 1), ev['Create_at']))
     
-    # 3. Reset Event Serial
-    if events:
-        pg_cur.execute("SELECT setval('events_race_id_seq', (SELECT max(race_id) FROM events))")
+    # 3. Migrate Starting List
+    print("Migrating Starting List...")
+    sqlite_cur.execute("SELECT * FROM starting_list")
+    entries = sqlite_cur.fetchall()
+    for en in entries:
+        pg_cur.execute("""
+            INSERT INTO starting_list (id, race_id, ns, driver, co_driver, car, eligibility, create_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (en['id'], en['race_id'], en['ns'], en['driver'], en['co_driver'], 
+              en['car'], en['eligibility'], en['create_at']))
 
     # 4. Migrate Settings
     print("Migrating Settings...")
@@ -64,13 +71,14 @@ def migrate():
     timings = sqlite_cur.fetchall()
     for t in timings:
         pg_cur.execute("""
-            INSERT INTO timing (id, race_id, no_start, line_status, time_stamp, ss, send, create_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (t['id'], t['Race_id'], t['No_start'], t['Line_Status'], t['Time_Stamp'], t['SS'], t['send'], t['create_at']))
+            INSERT INTO timing (id, race_id, no_start, line_status, time_stamp, ss, elapsed, send, create_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (t['id'], t['Race_id'], t['No_start'], t['Line_Status'], 
+              t['Time_Stamp'], t['SS'], t.get('elapsed' or t.get('Elapsed')), t['send'], t['create_at']))
 
-    # Reset Timing Serial
+    # 6. Success Notification
     if timings:
-        pg_cur.execute("SELECT setval('timing_id_seq', (SELECT max(id) FROM timing))")
+        print(f"Migrated {len(timings)} timing records.")
 
     pg_conn.commit()
     print("Migration successful!")

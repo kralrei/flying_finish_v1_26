@@ -63,8 +63,8 @@
                                 <tr>
                                     <th>#</th>
                                     <th>SS</th>
-                                    <th>NO. START (NS)</th>
-                                    <th>WAKTU (TIMING)</th>
+                                    <th>NO START</th>
+                                    <th>TIME</th>
                                 </tr>
                             </thead>
                             <tbody id="timingEventsBody">
@@ -79,8 +79,17 @@
                     </div>
                 </div>
             </div>
+            <div class="mobile-capture-container">
+                <button class="capture-btn-huge tc" onclick="sendManual('TC', true)">
+                    <i class="fas fa-fingerprint"></i> TAP TO CAPTURE TC
+                </button>
+            </div>
         </main>
     </div>
+    <script>
+        window.BEEP_ENABLED = "{{ settings.get('beep_sound', 'on') }}" === "on";
+        window.TIME_PRECISION = parseInt("{{ settings.get('time_precision', '3') }}");
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
 </body>

@@ -44,6 +44,10 @@
             </div>
         </main>
     </div>
+    <script>
+        window.BEEP_ENABLED = "{{ settings.get('beep_sound', 'on') }}" === "on";
+        window.TIME_PRECISION = parseInt("{{ settings.get('time_precision', '3') }}");
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
 </body>

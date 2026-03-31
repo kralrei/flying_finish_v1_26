@@ -3,9 +3,269 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Results - Kralrei FF 26</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <style>
+        .results-container {
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .ss-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+        }
+
+        .ss-tab {
+            padding: 10px 18px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: var(--transition);
+            box-shadow: 5px 5px 10px #bebebe, -5px -5px 10px #ffffff;
+            white-space: nowrap;
+            min-width: 70px;
+            text-align: center;
+        }
+
+        .ss-tab.active {
+            color: var(--accent-primary);
+            box-shadow: inset 5px 5px 10px #bebebe, inset -5px -5px 10px #ffffff;
+        }
+
+        .ss-tab:hover {
+            transform: translateY(-2px);
+            color: var(--accent-primary);
+        }
+
+        .rank-badge {
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 800;
+            font-size: 0.9rem;
+        }
+
+        .rank-1 { background: linear-gradient(135deg, #ffd700, #ffac00); color: #fff; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4); }
+        .rank-2 { background: linear-gradient(135deg, #c0c0c0, #95a5a6); color: #fff; box-shadow: 0 4px 15px rgba(192, 192, 192, 0.4); }
+        .rank-3 { background: linear-gradient(135deg, #cd7f32, #a0522d); color: #fff; box-shadow: 0 4px 15px rgba(205, 127, 50, 0.4); }
+        .rank-other { background: #f1f5f9; color: #64748b; }
+
+        .time-cell {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .elapsed-time {
+            color: var(--accent-primary);
+            font-weight: 800;
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+        }
+
+        .driver-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .driver-name {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+        }
+
+        .car-info {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 50px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 25px;
+            color: var(--text-secondary);
+        }
+    </style>
 </head>
 <body>
-    
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-flag-checkered"></i> Active Event</h2>
+                <div class="active-event-name" title="{{ event.get('Event_Name') }}">{{ event.get('Event_Name') or 'No Event Active' }}</div>
+                <div id="sidebarClock" class="sidebar-clock">00:00:00</div>
+                <div class="status" style="margin-top: 15px; justify-content: center;">
+                    <span id="connectionStatus" class="{% if connected %}connected{% else %}disconnected{% endif %}">
+                        <i class="fas fa-wifi"></i> {% if connected %}Connected{% else %}Disconnected{% endif %}
+                    </span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+                <a href="/hq"><i class="fas fa-satellite"></i> <span>HQ</span></a>
+                <a href="/tc"><i class="fas fa-hourglass-start"></i> <span>TC</span></a>
+                <a href="/start"><i class="fas fa-flag-checkered"></i> <span>Start</span></a>
+                <a href="/flying_finish"><i class="fas fa-stopwatch"></i> <span>Flying Finish</span></a>
+                <a href="/stop"><i class="fas fa-hand-paper"></i> <span>Finish Stop</span></a>
+                <a href="/park"><i class="fas fa-wrench"></i> <span>Service Park</span></a>
+                <a href="/results" class="active"><i class="fas fa-trophy"></i> <span>Results</span></a>
+                <a href="/settings"><i class="fas fa-cog"></i> <span>Settings</span></a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px;">
+                <div>
+                    <h1 style="color: #2c3e50;"><i class="fas fa-trophy"></i> Official Results</h1>
+                    <p style="color: #64748b; font-weight: 500;">Live classification and stage timing</p>
+                </div>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <select id="eligibilityFilter" onchange="applyFilters()" style="padding: 12px 20px; border-radius: 15px; border: 2.5px solid #6366f1; font-family: 'Outfit', sans-serif; font-weight: 800; background: white; cursor: pointer; color: #6366f1; box-shadow: 5px 5px 10px #bebebe, -5px -5px 10px #ffffff; appearance: none; -webkit-appearance: none; outline: none;">
+                        <option value="">🏆 ALL ELIGIBILITY</option>
+                        {% for elig in eligibilities %}
+                        <option value="{{ elig }}" {% if selected_elig == elig %}selected{% endif %}>{{ elig }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn secondary" onclick="window.location.reload()" style="white-space: nowrap;">
+                        <i class="fas fa-sync-alt"></i> REFRESH
+                    </button>
+                </div>
+            </header>
+
+            <div class="results-container">
+                <div class="ss-tabs">
+                    <a href="/results?ss=overall{% if selected_elig %}&eligibility={{ selected_elig }}{% endif %}" class="ss-tab {% if selected_ss == 'overall' %}active{% endif %}" style="min-width: 100px;"><i class="fas fa-globe"></i> OVERALL</a>
+                    {% set max_ss = (settings.get('Total_SS') or settings.get('total_ss') or 1) | int %}
+                    {% for i in range(1, max_ss + 1) %}
+                    <a href="/results?ss={{ i }}{% if selected_elig %}&eligibility={{ selected_elig }}{% endif %}" class="ss-tab {% if selected_ss == i|string %}active{% endif %}">SS {{ i }}</a>
+                    {% endfor %}
+                </div>
+
+                {% if results %}
+                    {% for ss_num, ss_data in ss_results.items() %}
+                    <div class="dashboard-card" style="margin-bottom: 40px; background: #e0e0e0; border-radius: 35px;">
+                        <h3 style="color: #6366f1; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; text-transform: uppercase;">
+                            <i class="fas fa-{% if ss_num == 'OVERALL' %}globe{% else %}stopwatch{% endif %}"></i> 
+                            {{ 'OVERALL EVENT' if ss_num == 'OVERALL' else 'SPECIAL STAGE ' ~ ss_num }}
+                        </h3>
+                        
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width: 60px;">RK</th>
+                                        <th style="width: 80px;">NS</th>
+                                        <th>Competitor / Team</th>
+                                        <th>Eligibility</th>
+                                        {% if ss_num == 'OVERALL' %}
+                                        <th style="text-align: center;">SS Done</th>
+                                        <th style="text-align: right;">Total Time</th>
+                                        {% else %}
+                                        <th>Start Time</th>
+                                        <th>Finish Time</th>
+                                        <th style="text-align: center;">Pen</th>
+                                        <th style="text-align: right;">Stage Time</th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for res in ss_data %}
+                                    <tr style="transition: all 0.2s;">
+                                        <td>
+                                            <div class="rank-badge rank-{{ res.rank if res.rank in [1, 2, 3] else 'other' }}">
+                                                {{ res.rank }}
+                                            </div>
+                                        </td>
+                                        <td style="font-weight: 800; color: var(--accent-primary);">#{{ res.ns }}</td>
+                                        <td>
+                                            <div class="driver-info">
+                                                <span class="driver-name">{{ res.driver }}{% if res.co_driver and res.co_driver != '-' %} / {{ res.co_driver }}{% endif %}</span>
+                                                <span class="car-info">{{ res.car }}</span>
+                                            </div>
+                                        </td>
+                                        <td style="font-weight: 700; color: #64748b;">{{ res.eligibility }}</td>
+                                        
+                                        {% if ss_num == 'OVERALL' %}
+                                        <td style="text-align: center;">
+                                            <span style="background: rgba(99, 102, 241, 0.1); padding: 5px 12px; border-radius: 20px; font-weight: 800; color: var(--accent-primary);">
+                                                {{ res.ss_completed }}
+                                            </span>
+                                        </td>
+                                        <td class="time-cell elapsed-time" style="text-align: right;">{{ res.elapsed_time }}</td>
+                                        {% else %}
+                                        <td class="time-cell">{{ res.start_time or '--:--:--.---' }}</td>
+                                        <td class="time-cell">{{ res.ff_time or '--:--:--.---' }}</td>
+                                        <td style="text-align: center; color: #ef4444; font-weight: bold;">{{ res.penalty_str or '-' }}</td>
+                                        <td class="time-cell elapsed-time" style="text-align: right;">{{ res.elapsed_time }}</td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-results">
+                        <i class="fas fa-info-circle" style="font-size: 3rem; margin-bottom: 20px; color: #cbd5e1;"></i>
+                        <h3>No timing data found for this selection.</h3>
+                        <p>Results will appear once cars complete the stage from Start to Flying Finish.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script>
+        // Real-time clock and status from common scripts
+        function updateClock() {
+            const now = new Date();
+            const time = now.toTimeString().split(' ')[0];
+            const clock = document.getElementById('sidebarClock');
+            if (clock) clock.innerText = time;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Socket listener for auto-refresh if needed
+        const socket = io();
+        socket.on('new_data', () => {
+            console.log("New data detected, refreshing results slightly later...");
+            // debounce or delay to ensure DB is updated
+            setTimeout(() => {
+                // window.location.reload(); 
+            }, 1000);
+        });
+
+        function applyFilters() {
+            const elig = document.getElementById('eligibilityFilter').value;
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentSs = urlParams.get('ss') || 'overall';
+            
+            let newUrl = '/results?ss=' + currentSs;
+            if (elig) {
+                newUrl += '&eligibility=' + encodeURIComponent(elig);
+            }
+            window.location.href = newUrl;
+        }
+    </script>
 </body>
-</html>
+</html>

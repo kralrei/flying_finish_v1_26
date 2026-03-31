@@ -34,7 +34,26 @@
 
         <main class="main-content">
             <header style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
-                <h1 style="color: #2c3e50; margin: 0;"><i class="fas fa-stopwatch"></i> Timing</h1>
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <h1 style="color: #2c3e50; margin: 0;"><i class="fas fa-stopwatch"></i> Timing</h1>
+                    
+                    <!-- Manual Controls Moved from Dashboard -->
+                    <div style="display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,0.5); padding: 5px 15px; border-radius: 15px; border: 1px solid rgba(0,0,0,0.05);">
+                        <div id="liveClockDisplay" style="font-size: 1.1rem; font-family: monospace; font-weight: bold; color: #e74c3c; background: #fff; padding: 4px 10px; border-radius: 6px; border: 1px solid #e74c3c; min-width: 140px; text-align: center;">00:00:00.000</div>
+                        
+                        <button class="btn danger" id="manualToggleBtn" onclick="toggleManualMode()" style="background: #95a5a6; color: white; padding: 8px 15px; font-size: 0.8rem; min-width: 130px;">
+                            <i class="fas fa-power-off"></i> <span id="manualToggleText">Manual: OFF</span>
+                        </button>
+                        
+                        <button class="btn" onclick="sendManual('M1')" style="padding: 8px 15px; font-size: 0.8rem;">
+                            <i class="fas fa-arrow-right"></i> LEFT
+                        </button>
+                        
+                        <button class="btn" onclick="sendManual('M2')" style="padding: 8px 15px; font-size: 0.8rem;">
+                            <i class="fas fa-arrow-left"></i> RIGHT
+                        </button>
+                    </div>
+                </div>
                 <div class="view-controls" style="display: flex; gap: 15px; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <label style="font-weight: bold; color: #2c3e50;">SS:</label>
@@ -50,6 +69,16 @@
                     <button id="btnDouble" class="btn secondary" onclick="setViewMode('double')">Double Track</button>
                 </div>
             </header>
+            
+            <!-- Live Track Queue: Cars currently in stage -->
+            <div id="carsInStageContainer" style="margin-bottom: 20px; display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow-x: auto; min-height: 60px;">
+                <div style="font-weight: 800; color: #64748b; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    <i class="fas fa-satellite-dish" style="color: #6366f1;"></i> In Stage:
+                </div>
+                <div id="liveQueue" style="display: flex; gap: 10px; align-items: center;">
+                    <span style="color: #94a3b8; font-size: 0.9rem; font-style: italic;">No cars active</span>
+                </div>
+            </div>
 
             <!-- Single Track View -->
             <div id="singleTrackView" class="dashboard-card">
@@ -60,7 +89,10 @@
                                 <th>no</th>
                                 <th>SS</th>
                                 <th>ns</th>
+                                <th>Penalty</th>
                                 <th>Finish Time</th>
+                                <th>Status</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="timingEventsBody">
@@ -70,11 +102,28 @@
                                 <td><span style="font-weight: bold; color: #2980b9;">{{ event.SS or '1' }}</span></td>
                                 <td>
                                     <input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" 
-                                           onkeydown="if(event.key==='Enter') updateNS('{{ event.id }}', this.value)" 
+                                           onkeydown="if(event.key==='Enter') { updateNS('{{ event.id }}', this.value); this.blur(); }" 
                                            class="ns-input {{ event.Line_Status }}"
                                            style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;">
                                 </td>
-                                <td>{{ event.Time_Stamp }}</td>
+                                <td>
+                                    <input type="number" data-id="{{ event.id }}" value="{{ event.penalty or 0 }}" 
+                                           onkeydown="if(event.key==='Enter') { updatePenalty('{{ event.id }}', this.value); this.blur(); }" 
+                                           class="pen-input"
+                                           style="width: 60px; text-align: center; border: 2px solid #edeff2; border-radius: 6px; color: #e74c3c; font-weight: bold;"
+                                           title="Penalty in seconds">
+                                </td>
+                                <td>
+                                    <input type="text" value="{{ event.Time_Stamp }}" 
+                                           onkeydown="if(event.key==='Enter') { updateTime('{{ event.id }}', this.value); this.blur(); }"
+                                           style="width: 130px; text-align: center; border: 2px solid #edeff2; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold; background: #fdfdfd;">
+                                </td>
+                                <td><span class="event-type {{ event.Line_Status }}">{{ event.Line_Status }}</span></td>
+                                <td>
+                                    <button onclick="deleteTimingRecord('{{ event.id }}')" class="btn danger" style="padding: 5px 10px; font-size: 0.7rem;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -93,7 +142,10 @@
                                     <th>no</th>
                                     <th>SS</th>
                                     <th>ns</th>
+                                    <th>Pen</th>
                                     <th>Finish Time</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="timingLeftBody">
@@ -102,8 +154,21 @@
                                 <tr>
                                     <td>{{ f1_idx.value }}</td>
                                     <td><span style="font-weight: bold; color: #2980b9;">{{ event.SS or '1' }}</span></td>
-                                    <td><input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" onkeydown="if(event.key==='Enter') updateNS('{{ event.id }}', this.value)" class="ns-input F1" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
-                                    <td>{{ event.Time_Stamp }}</td>
+                                    <td><input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" onkeydown="if(event.key==='Enter') { updateNS('{{ event.id }}', this.value); this.blur(); }" class="ns-input F1" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
+                                    <td>
+                                        <input type="number" data-id="{{ event.id }}" value="{{ event.penalty or 0 }}" onkeydown="if(event.key==='Enter') { updatePenalty('{{ event.id }}', this.value); this.blur(); }" style="width: 50px; text-align: center; border: 1px solid #edeff2; border-radius: 4px;">
+                                    </td>
+                                    <td>
+                                        <input type="text" value="{{ event.Time_Stamp }}" 
+                                               onkeydown="if(event.key==='Enter') { updateTime('{{ event.id }}', this.value); this.blur(); }"
+                                               style="width: 130px; text-align: center; border: 2px solid #edeff2; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold; background: #fdfdfd;">
+                                    </td>
+                                    <td><span class="event-type {{ event.Line_Status }}">{{ event.Line_Status }}</span></td>
+                                    <td>
+                                        <button onclick="deleteTimingRecord('{{ event.id }}')" class="btn danger" style="padding: 5px 10px; font-size: 0.7rem;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
                                 </tr>
                                 {% set f1_idx.value = f1_idx.value + 1 %}
                                 {% endfor %}
@@ -121,7 +186,10 @@
                                     <th>no</th>
                                     <th>SS</th>
                                     <th>ns</th>
+                                    <th>Pen</th>
                                     <th>Finish Time</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="timingRightBody">
@@ -130,8 +198,21 @@
                                 <tr>
                                     <td>{{ f2_idx.value }}</td>
                                     <td><span style="font-weight: bold; color: #2980b9;">{{ event.SS or '1' }}</span></td>
-                                    <td><input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" onkeydown="if(event.key==='Enter') updateNS('{{ event.id }}', this.value)" class="ns-input F2" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
-                                    <td>{{ event.Time_Stamp }}</td>
+                                    <td><input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" onkeydown="if(event.key==='Enter') { updateNS('{{ event.id }}', this.value); this.blur(); }" class="ns-input F2" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
+                                    <td>
+                                        <input type="number" data-id="{{ event.id }}" value="{{ event.penalty or 0 }}" onkeydown="if(event.key==='Enter') { updatePenalty('{{ event.id }}', this.value); this.blur(); }" style="width: 50px; text-align: center; border: 1px solid #edeff2; border-radius: 4px;">
+                                    </td>
+                                    <td>
+                                        <input type="text" value="{{ event.Time_Stamp }}" 
+                                               onkeydown="if(event.key==='Enter') { updateTime('{{ event.id }}', this.value); this.blur(); }"
+                                               style="width: 130px; text-align: center; border: 2px solid #edeff2; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold; background: #fdfdfd;">
+                                    </td>
+                                    <td><span class="event-type {{ event.Line_Status }}">{{ event.Line_Status }}</span></td>
+                                    <td>
+                                        <button onclick="deleteTimingRecord('{{ event.id }}')" class="btn danger" style="padding: 5px 10px; font-size: 0.7rem;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
                                 </tr>
                                 {% set f2_idx.value = f2_idx.value + 1 %}
                                 {% endfor %}
@@ -161,8 +242,17 @@
                     }
                 }
             </script>
+            <div class="mobile-capture-container">
+                <button class="capture-btn-huge ff" onclick="sendManual('FM', true)">
+                    <i class="fas fa-stopwatch"></i> TAP TO FINISH (FM)
+                </button>
+            </div>
         </main>
     </div>
+    <script>
+        window.BEEP_ENABLED = "{{ settings.get('beep_sound', 'on') }}" === "on";
+        window.TIME_PRECISION = parseInt("{{ settings.get('time_precision', '3') }}");
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
 </body>

@@ -19,14 +19,22 @@ def reset_database():
         cur.execute('''CREATE TABLE IF NOT EXISTS events (
             race_id TEXT PRIMARY KEY,
             event_name TEXT, start_date TEXT, end_date TEXT,
-            operator TEXT, koordinat TEXT, create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            operator TEXT, koordinat TEXT, total_ss INTEGER DEFAULT 1,
+            create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
         
         cur.execute('''CREATE TABLE IF NOT EXISTS timing (
             id TEXT PRIMARY KEY,
             race_id TEXT REFERENCES events(race_id),
-            no_start TEXT, line_status TEXT, time_stamp TEXT, ss TEXT,
+            no_start TEXT, line_status TEXT, time_stamp TEXT, ss TEXT, elapsed TEXT,
             send INTEGER DEFAULT 1, create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+        
+        cur.execute('''CREATE TABLE IF NOT EXISTS starting_list (
+            id TEXT PRIMARY KEY,
+            race_id TEXT REFERENCES events(race_id),
+            ns TEXT, driver TEXT, co_driver TEXT, car TEXT, eligibility TEXT,
+            create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
         
         cur.execute('''CREATE TABLE IF NOT EXISTS settings (
@@ -37,7 +45,7 @@ def reset_database():
         conn.commit()
         cur.close()
         conn.close()
-        print(">>> DATABASE AIVEN BERHASIL DIRISE T DAN SIAP DIGUNAKAN! <<<")
+        print(">>> DATABASE AIVEN BERHASIL DIRISET DAN SIAP DIGUNAKAN! <<<")
         
     except Exception as e:
         print(f"Error: {e}")

@@ -246,7 +246,7 @@ def hq():
     active_id = state['active_race_id']
     
     # Pendukung Viewer: Pilih event mana yang sedang ditampilkan (default: active_id)
-    view_id = request.args.get('view_id') or active_idad
+    view_id = request.args.get('view_id') or active_id
     view_event = database.get_event_by_id(view_id)
     
     # Jika event ditemukan, gunakan datanya untuk mengisi form
@@ -281,18 +281,30 @@ def hq():
 @app.route('/tc')
 def tc():
     state = get_current_state()
+    active_id = state['active_race_id']
+    if active_id:
+        database.pull_timing_from_cloud(active_id)
     return render_template('tc.html', **state)
 
 @app.route('/start')
 def start():
     state = get_current_state()
+    active_id = state['active_race_id']
+    if active_id:
+        database.pull_timing_from_cloud(active_id)
     return render_template('start.html', **state)
 
 @app.route('/flying_finish')
 def flying_finish():
     state = get_current_state()
     current_ss = state['settings'].get('current_ss', '1')
-    timings = database.get_timings(state['active_race_id'], limit=100, ss=current_ss)
+    active_id = state['active_race_id']
+    
+    # PULING DARI CLOUD AGAR DATA DARI HP MASUK KE LAPTOP (Instant)
+    if active_id:
+        database.pull_timing_from_cloud(active_id, ss=current_ss)
+        
+    timings = database.get_timings(active_id, limit=100, ss=current_ss)
     return render_template('events.html', events=timings, **state)
 
 @app.route('/stop')
@@ -308,7 +320,58 @@ def park():
 @app.route('/results')
 def results():
     state = get_current_state()
-    return render_template('result.html', **state)
+    # Default to 'overall' on first visit
+    ss = request.args.get('ss', 'overall')
+    selected_elig = request.args.get('eligibility')
+    
+    active_id = state['active_race_id']
+    
+    # AMBIL DATA TERBARU DARI CLOUD (TC/Start dari HP harus masuk ke sini)
+    if active_id:
+        database.pull_timing_from_cloud(active_id)
+        
+    if ss == 'overall':
+        results_data = database.get_overall_results(active_id)
+    else:
+        results_data = database.get_stage_results(active_id, ss=ss)
+        
+    # Fetch unique categories (eligibilities) from starting list for filter dropdown
+    starting_entries = database.get_starting_list(state['active_race_id'])
+    elig_list = sorted(list(set(row.get('eligibility') for row in starting_entries if row.get('eligibility'))))
+    
+    # Filter by eligibility if selected
+    if selected_elig:
+        results_data = [res for res in results_data if res.get('eligibility') == selected_elig]
+        
+    # Re-rank after filter if filtered by eligibility
+    if selected_elig:
+        rank_counter = 1
+        for res in results_data:
+            if res.get('elapsed_time') != '--:--.---':
+                res['rank'] = rank_counter
+                rank_counter += 1
+            else:
+                res['rank'] = '-'
+        
+    # Group results for template display
+    ss_results = {}
+    if ss == 'overall':
+        ss_results = {'OVERALL': results_data}
+    else:
+        # If specific SS selected, or group by SS
+        for res in results_data:
+            ss_num = res.get('ss', '1')
+            if ss_num not in ss_results:
+                ss_results[ss_num] = []
+            ss_results[ss_num].append(res)
+        
+    return render_template('result.html', 
+                         results=results_data, 
+                         ss_results=ss_results,
+                         selected_ss=ss,
+                         eligibilities=elig_list,
+                         selected_elig=selected_elig,
+                         **state)
 
 @app.route('/api/events')
 def api_events():
@@ -433,8 +496,52 @@ def update_ns_api():
     timing = database.get_timing_by_id(timing_id)
     _send_timing_to_serial(timing)
 
+    # EVENT-DRIVEN SYNC: Push ke Cloud sudah otomatis di update_timing_ns (Dual-Write).
+    # Sekarang kita tarik data (PULL) asinkron:
+    # 1. Segera setelah Enter (instan)
+    # 2. Delay 3 detik setelah Enter (memastikan perhitungan cloud tuntas)
+    def _manual_sync_trigger():
+        database.pull_timing_from_cloud(timing.get('Race_id'))
+        time.sleep(3)
+        database.pull_timing_from_cloud(timing.get('Race_id'))
+        
+    threading.Thread(target=_manual_sync_trigger, daemon=True).start()
+
     return jsonify({'status': 'updated'})
 
+@app.route('/api/events/delete_timing', methods=['POST'])
+def delete_timing_api():
+    data = request.json
+    timing_id = data.get('id')
+    if not timing_id:
+        return jsonify({'error': 'No ID provided'}), 400
+    
+    database.delete_timing_record(timing_id)
+    socketio.emit('new_data', {'status': 'sys'}) 
+    return jsonify({'status': 'deleted'})
+
+@app.route('/api/events/update_penalty', methods=['POST'])
+def update_penalty_api():
+    data = request.json
+    timing_id = data.get('id')
+    penalty = data.get('penalty', 0)
+    if not timing_id:
+        return jsonify({'error': 'No ID provided'}), 400
+    
+    database.update_timing_penalty(timing_id, penalty)
+    socketio.emit('new_data', {'status': 'sys'})
+    return jsonify({'status': 'updated'})
+@app.route('/api/events/update_time', methods=['POST'])
+def update_time_api():
+    data = request.json
+    timing_id = data.get('id')
+    new_time = data.get('time', '')
+    if not timing_id:
+        return jsonify({'error': 'No ID provided'}), 400
+    
+    database.update_timing_time(timing_id, new_time)
+    socketio.emit('new_data', {'status': 'sys'})
+    return jsonify({'status': 'updated'})
 @app.route('/api/events/sync_ss', methods=['POST'])
 def sync_ss_api():
     data = request.json
@@ -484,7 +591,11 @@ def get_location():
 @app.route('/api/save_race_setup', methods=['POST'])
 def api_save_race_setup():
     data = request.json
-    if save_race_setup(data):
+    # Save to JSON file (legacy/local)
+    json_saved = save_race_setup(data)
+    # Update DATABASE (Local SQLite & Cloud Postgres)
+    database.update_settings(data)
+    if json_saved:
         return jsonify({'status': 'success'})
     return jsonify({'status': 'error'}), 500
 
@@ -536,12 +647,31 @@ def api_pull_cloud_events():
 if __name__ == '__main__':
     database.init_db()
     
-    # Jalankan Flask di Thread terpisah (Background)
+    # 1. Jalankan Flask di Thread terpisah (Background)
     t = threading.Thread(target=run_flask)
     t.daemon = True
     t.start()
     
-    # Buka Jendela Aplikasi Utama (Desktop view)
+    # 2. ONE-TIME SYNC & LISTENER: Tarik data terbaru saat aplikasi dibuka
+    def _startup_sync():
+        database.pull_events_from_cloud()
+        state = get_current_state()
+        active_id = state.get('active_race_id')
+        
+        # Callback untuk update UI saat data cloud masuk (Status: sync)
+        # Status 'sync' akan refresh tabel tapi TIDAK bunyi Beep di script.js
+        def sync_callback(count):
+            socketio.emit('new_data', {'status': 'sync', 'count': count})
+
+        if active_id:
+            database.pull_timing_from_cloud(active_id, on_sync_callback=sync_callback)
+        
+        # AKTIFKAN REAL-TIME LISTENER
+        database.start_cloud_listener(active_id, on_sync_callback=sync_callback)
+        
+    threading.Thread(target=_startup_sync, daemon=True).start()
+    
+    # 3. Buka Jendela Aplikasi Utama (Desktop view)
     print("Aplikasi sedang berjalan...")
     webview.create_window(
         'Kralrei Flying Finish 2026 - v1.0', 
