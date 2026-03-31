@@ -190,7 +190,7 @@
             };
 
             return (
-                <div className="flex flex-col h-screen max-w-md mx-auto p-4 relative overflow-hidden bg-[#0a0f1e]">
+                <div className="flex flex-col h-[100dvh] max-w-md mx-auto p-4 pb-8 relative overflow-hidden bg-[#0a0f1e]">
                     <header className="flex justify-between items-center mb-6">
                         <div className="flex items-center gap-2">
                              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
@@ -222,7 +222,7 @@
                         </button>
                     </div>
 
-                    <div className="space-y-6 flex-grow overflow-y-auto pb-4">
+                    <div className="space-y-6 flex-grow overflow-y-auto pb-6">
                         
                         <div className="grid grid-cols-2 gap-4">
                             {/* Column LEFT: SS & Capture */}
@@ -242,7 +242,7 @@
 
                                 <button 
                                     onClick={captureNow}
-                                    className={`w-full py-8 rounded-3xl border-2 border-dashed border-indigo-500/30 flex flex-col items-center justify-center gap-2 active:bg-indigo-500/20 active:scale-[0.98] transition-all group`}
+                                    className={`w-full py-8 rounded-3xl border-2 border-dashed border-indigo-500/30 flex flex-col items-center justify-center gap-2 active:bg-indigo-500/20 active:scale-[0.98] transition-all group shadow-inner`}
                                 >
                                     <i className="fas fa-stopwatch text-2xl text-indigo-400 group-active:scale-125 transition-transform"></i>
                                     <span className="font-black text-indigo-400 tracking-tighter text-[10px] uppercase">TAP TO<br/>CAPTURE</span>
@@ -266,9 +266,9 @@
                                 <div className="flex flex-col gap-2 bg-slate-800/20 rounded-2xl p-2 border border-white/5 h-[105px]">
                                     <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider text-center">Recent Cars</label>
                                     <div className="flex flex-wrap justify-center gap-2 overflow-y-auto">
-                                        {history.length === 0 && <span className="text-[9px] text-slate-600 mt-2 italic">No history</span>}
+                                        {history.length === 0 && <span className="text-[9px] text-slate-600 mt-2 italic">None</span>}
                                         {history.map((h, i) => (
-                                            <div key={i} className="bg-slate-700/50 text-indigo-300 text-[10px] font-bold px-2 py-1 rounded-md border border-white/5">#{h}</div>
+                                            <div key={i} className="bg-slate-700/50 text-indigo-300 text-[10px] font-bold px-2 py-1 rounded-md border border-white/5 animate-in fade-in slide-in-from-right-2 duration-300">#{h}</div>
                                         ))}
                                     </div>
                                 </div>
@@ -276,7 +276,7 @@
                         </div>
 
                         {/* Jam Input Area */}
-                        <div className="flex flex-col gap-2 bg-slate-800/30 p-4 rounded-3xl border border-white/5">
+                        <div className="flex flex-col gap-2 bg-slate-800/20 p-4 rounded-3xl border border-white/5 outline outline-2 outline-white/5">
                             <label className="text-[10px] font-bold text-indigo-300/60 uppercase tracking-widest px-1 text-center">Time (HH:MM)</label>
                             <div className="relative">
                                 <input 
@@ -297,7 +297,7 @@
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="grid grid-cols-2 gap-4 mt-auto pt-4">
+                    <div className="grid grid-cols-2 gap-4 mt-auto">
                         <button 
                             onClick={handleClear}
                             className="bg-slate-800/50 text-white font-bold py-4 rounded-2xl border border-white/5 btn-tap flex items-center justify-center gap-2"
@@ -315,7 +315,7 @@
                     <button 
                         onClick={handleSave}
                         disabled={loading}
-                        className={`w-full py-5 rounded-3xl font-bold text-2xl flex items-center justify-center gap-3 btn-tap mt-4 ${loading ? 'bg-indigo-800 opacity-50' : 'bg-indigo-600'} text-white shadow-2xl shadow-indigo-500/20 active:bg-indigo-500`}
+                        className={`w-full py-5 rounded-3xl font-bold text-2xl flex items-center justify-center gap-3 btn-tap mt-4 ${loading ? 'bg-indigo-800' : 'bg-indigo-600'} text-white shadow-2xl shadow-indigo-600/40 active:bg-indigo-500 focus:outline-none`}
                     >
                         {loading ? (
                              <i className="fas fa-spinner fa-spin"></i>
