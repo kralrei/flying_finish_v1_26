@@ -92,6 +92,36 @@ def save_timing():
         print(f"Error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/api/recent_timing', methods=['GET'])
+def get_recent_timing():
+    station_type = request.args.get('station_type', 'TC')
+    ss = request.args.get('ss', '1')
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Get active_race_id
+        cur.execute("SELECT value FROM settings WHERE key = 'active_race_id'")
+        res = cur.fetchone()
+        race_id = res['value'] if res else '1'
+        
+        # Fetch last 10 entries for this station and SS
+        cur.execute("""
+            SELECT no_start 
+            FROM timing 
+            WHERE race_id = %s AND line_status = %s AND ss = %s 
+            ORDER BY time_stamp DESC LIMIT 10
+        """, (race_id, station_type, ss))
+        
+        history = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        return jsonify([h['no_start'] for h in history])
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 if __name__ == '__main__':
     # Local development: python server.py
     # Access via http://127.0.0.1:5050

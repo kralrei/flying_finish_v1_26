@@ -100,7 +100,26 @@
                 }
             };
 
-            const [history, setHistory] = useState(JSON.parse(localStorage.getItem('ff_history') || '[]'));
+            const [history, setHistory] = useState([]);
+
+            // Fetch History from Database
+            const fetchHistory = async () => {
+                try {
+                    const response = await fetch(`${apiUrl}/api/recent_timing?station_type=${station}&ss=${ss}`);
+                    const data = await response.json();
+                    if (Array.isArray(data)) {
+                        setHistory(data);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch history:", e);
+                }
+            };
+
+            // Initial Load and Auto-Refresh on Change
+            useEffect(() => {
+                fetchEventDetails();
+                fetchHistory(); // Load from DB
+            }, [apiUrl, station, ss]); // Trigger when station or SS changes
 
             const handleTimeInputChange = (val) => {
                 let formatted = val.replace(/[^0-9:]/g, '');
@@ -143,12 +162,12 @@
                     if(res.status === 'success') {
                         setMessage('Data Terkirim!');
                         
-                        // Update History
-                        const newHistory = [ns, ...history.slice(0, 4)];
-                        setHistory(newHistory);
-                        localStorage.setItem('ff_history', JSON.stringify(newHistory));
-
-                        setTimeout(() => setMessage(''), 3000);
+                        // Wait a tiny bit then refresh history from DB
+                        setTimeout(() => {
+                            fetchHistory();
+                            setMessage('');
+                        }, 1000);
+                        
                         handleClear();
                     } else {
                         alert("Gagal Terkirim: " + res.message);
