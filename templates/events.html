@@ -4,7 +4,7 @@
     <title>Events - Kralrei FF 26-v1</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}?v=15" rel="stylesheet">
 </head>
 <body>
     <div class="app-layout">
@@ -254,6 +254,6 @@
         window.TIME_PRECISION = parseInt("{{ settings.get('time_precision', '3') }}");
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}?v=14"></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=15"></script>
 </body>
 </html>
