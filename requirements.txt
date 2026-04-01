@@ -20,3 +20,6 @@ pywebview==4.2.2
 # Real-time WebSockets
 flask-socketio==5.3.6
 eventlet==0.33.3
+
+# Mobile App support
+flask-cors==4.0.0

@@ -10,7 +10,7 @@ app = Flask(__name__)
 CORS(app) # Allow connections from the mobile app
 
 # Aiven PostgreSQL Connection (Using Env Var)
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgres://avnadmin:AVNS_kBuJkPaOCdYMOCjCU0x@kralreirally2026-ipenk79-a621.j.aivencloud.com:17394/defaultdb?sslmode=require')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://user_flying:password_flying_finish@103.126.116.74:5432/flying_finish_db')
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)

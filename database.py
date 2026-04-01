@@ -83,6 +83,7 @@ def cloud_execute(sql, params=()):
 
     def _sync_task():
         global last_pg_check
+        conn = None
         try:
             pool = get_pg_pool()
             if not pool: return
@@ -94,11 +95,17 @@ def cloud_execute(sql, params=()):
                 cur.execute(pg_sql, params)
                 conn.commit()
                 cur.close()
-            finally:
-                pool.putconn(conn)
+            except:
+                conn.rollback()
+                raise
         except Exception as e:
+            if conn:
+                conn.rollback() # <<< BERSIHKAN TRANSAKSI YANG ERROR
             print(f"Cloud sync error: {e}")
             last_pg_check = time.time()
+        finally:
+            if pool and conn:
+                pool.putconn(conn)
 
     # Jalankan di background thread agar UI TIDAK BEKU
     threading.Thread(target=_sync_task, daemon=True).start()
@@ -317,7 +324,7 @@ def add_timing(race_id, line_status, timestamp, ns_number="", ss_number=""):
                      WHERE race_id = ? AND no_start = ? 
                      AND (ss = ? OR ss = ?) 
                      AND line_status IN ('START', 'ST') 
-                     ORDER BY time_stamp ASC LIMIT 1""", 
+                     ORDER BY time_stamp DESC LIMIT 1""", 
                   (race_id, ns_number, raw_ss, raw_ss.zfill(2)))
         start_row = c.fetchone()
         if start_row:
@@ -540,7 +547,7 @@ def update_timing_ns(timing_id, ns_number):
                          WHERE race_id = ? AND no_start = ? 
                          AND (ss = ? OR ss = ?) 
                          AND line_status IN ('START', 'ST') 
-                         ORDER BY time_stamp ASC LIMIT 1""", 
+                         ORDER BY time_stamp DESC LIMIT 1""", 
                       (curr['Race_id'], ns_number, raw_ss, raw_ss.zfill(2)))
             start_row = c.fetchone()
             
@@ -1103,11 +1110,11 @@ def get_stage_results(race_id, ss=None):
             
         status = t['Line_Status'].upper().strip()
         # START can be ST or START
-        if status in ('START', 'ST') and not results_map[key]['start_time']:
+        if status in ('START', 'ST'):
             st = str(t['Time_Stamp'] or '')
             results_map[key]['start_time'] = st[:5] if ':' in st and len(st) >= 5 else st
         # FINISH can be any of these
-        elif status in ('FF', 'F1', 'F2', 'FM') and not results_map[key]['ff_time']:
+        elif status in ('FF', 'F1', 'F2', 'FM'):
             results_map[key]['ff_time'] = t['Time_Stamp']
             
             # Handle penalty
@@ -1229,7 +1236,7 @@ def update_timing_time(timing_id, new_timestamp):
                      WHERE race_id = ? AND no_start = ? 
                      AND (ss = ? OR ss = ?) 
                      AND line_status IN ('START', 'ST') 
-                     ORDER BY time_stamp ASC LIMIT 1""", 
+                     ORDER BY time_stamp DESC LIMIT 1""", 
                   (curr['Race_id'], curr['No_start'], raw_ss, raw_ss.zfill(2)))
         start_row = c.fetchone()
         

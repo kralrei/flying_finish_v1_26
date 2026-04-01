@@ -554,6 +554,9 @@ tr:hover td {
 .event-type.F1 { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
 .event-type.F2 { background: linear-gradient(135deg, #f97316, #ea580c); }
 .event-type.FM { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.event-type.TC { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.event-type.TC-CORRECTION { background: linear-gradient(135deg, #8b5cf6, #6366f1); border: 2px solid rgba(255,255,255,0.2); }
+.event-type.RESTART { background: linear-gradient(135deg, #f59e0b, #d97706); }
 
 .status-badge.sent {
   background: linear-gradient(135deg, var(--success), #059669);
@@ -581,6 +584,8 @@ tr:hover td {
 .ns-input.F1 { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
 .ns-input.F2 { background: rgba(245, 101, 101, 0.1); color: #f97316; }
 .ns-input.FM { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.ns-input.TC { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+.ns-input.TC-CORRECTION { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-color: #8b5cf6 !important; }
 
 .form-group {
   display: flex;

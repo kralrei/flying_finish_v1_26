@@ -179,7 +179,7 @@ async function fetchEvents() {
         if (liveQueue) {
             // Find cars that started but haven't finished yet
             const started = events.filter(e => e.Line_Status === 'START' && e.No_start);
-            const finishedNS = new Set(events.filter(e => ['F1', 'F2', 'FM'].includes(e.Line_Status)).map(e => e.No_start));
+            const finishedNS = new Set(events.filter(e => ['F1', 'F2', 'FM', 'M1', 'M2', 'MM'].includes(e.Line_Status)).map(e => e.No_start));
             
             const inStage = started.filter(e => !finishedNS.has(e.No_start)).reverse(); // Show oldest starts first? 
             
@@ -242,28 +242,41 @@ async function fetchEvents() {
 
                 const isPenFocused = (focusedId == event.id && focusedField === 'pen');
                 const penToDisplay = isPenFocused ? focusedValue : (event.penalty || 0);
+
+                const isTCStart = path.includes('/tc') || path.includes('/start');
                 
+                const isRestart = racingEvents.slice(index + 1).some(e => e.No_start === event.No_start && e.No_start !== '' && e.No_start !== '-');
+                let displayStatus = isRestart ? 'RESTART' : event.Line_Status;
+                
+                // TC Page Specific: Change RESTART to TC CORRECTION
+                if (path.includes('/tc') && isRestart) {
+                    displayStatus = 'TC CORRECTION';
+                }
+                
+                const statusClass = displayStatus.replace(/\s+/g, '-');
                 tr.innerHTML = `
                     <td>${index + 1}</td>
                     <td><span style="font-weight: bold; color: #2980b9;">${event.SS || '1'}</span></td>
                     <td>
                         <input type="text" data-id="${event.id}" data-field="ns" value="${nsToDisplay}" 
                                onkeydown="if(event.key==='Enter') { updateNS('${event.id}', this.value); this.blur(); }" 
-                               class="ns-input ${event.Line_Status}"
+                               class="ns-input ${statusClass}"
                                style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;">
                     </td>
+                    ${isTCStart ? '' : `
                     <td>
                         <input type="number" data-id="${event.id}" data-field="pen" value="${penToDisplay}" 
                                onkeydown="if(event.key==='Enter') { updatePenalty('${event.id}', this.value); this.blur(); }" 
                                class="pen-input"
                                style="width: 60px; text-align: center; border: 2px solid #edeff2; border-radius: 6px; color: #e74c3c; font-weight: bold;">
                     </td>
+                    `}
                     <td>
                         <input type="text" data-id="${event.id}" data-field="time" value="${timeToDisplay}" 
                                onkeydown="if(event.key==='Enter') { updateTime('${event.id}', this.value); this.blur(); }"
                                style="width: 130px; text-align: center; border: 2px solid #edeff2; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold; background: #fdfdfd;">
                     </td>
-                    <td><span class="event-type ${event.Line_Status}">${event.Line_Status}</span></td>
+                    <td><span class="event-type ${statusClass}">${displayStatus}</span></td>
                     <td>
                         <button onclick="deleteTimingRecord('${event.id}')" class="btn danger" style="padding: 5px 10px; font-size: 0.7rem;">
                             <i class="fas fa-trash"></i>
@@ -307,6 +320,9 @@ async function fetchEvents() {
                 const isTimeFocused = (focusedId == event.id && focusedField === 'time' && event.Line_Status==='F1'); 
                 const timeToDisplay = isTimeFocused ? focusedValue : (event.Time_Stamp || '');
 
+                const isRestart = f1List.slice(index + 1).some(e => e.No_start === event.No_start && e.No_start !== '' && e.No_start !== '-');
+                const displayStatus = isRestart ? 'RESTART' : event.Line_Status;
+
                 tr.innerHTML = `
                     <td>${index + 1}</td>
                     <td><span style="font-weight: bold; color: #2980b9;">${event.SS || '1'}</span></td>
@@ -322,7 +338,7 @@ async function fetchEvents() {
                                onkeydown="if(event.key==='Enter') { updateTime('${event.id}', this.value); this.blur(); }"
                                style="width: 130px; text-align: center; border: 2px solid #edeff2; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold;">
                     </td>
-                    <td><span class="event-type ${event.Line_Status}">${event.Line_Status}</span></td>
+                    <td><span class="event-type ${displayStatus}">${displayStatus}</span></td>
                     <td>
                         <button onclick="deleteTimingRecord('${event.id}')" class="btn danger" style="padding: 5px 10px; font-size: 0.7rem;">
                             <i class="fas fa-trash"></i>
@@ -337,6 +353,9 @@ async function fetchEvents() {
                 const valToDisplay = isFocused ? focusedValue : (event.No_start || '');
                 const isTimeFocused = (focusedId == event.id && focusedField === 'time' && event.Line_Status==='F2'); 
                 const timeToDisplay = isTimeFocused ? focusedValue : (event.Time_Stamp || '');
+
+                const isRestart = f2List.slice(index + 1).some(e => e.No_start === event.No_start && e.No_start !== '' && e.No_start !== '-');
+                const displayStatus = isRestart ? 'RESTART' : event.Line_Status;
 
                 tr.innerHTML = `
                     <td>${index + 1}</td>
@@ -353,7 +372,7 @@ async function fetchEvents() {
                                onkeydown="if(event.key==='Enter') { updateTime('${event.id}', this.value); this.blur(); }"
                                style="width: 130px; text-align: center; border: 2px solid #edeff2; border-radius: 6px; font-family: 'Courier New', monospace; font-weight: bold;">
                     </td>
-                    <td><span class="event-type ${event.Line_Status}">${event.Line_Status}</span></td>
+                    <td><span class="event-type ${displayStatus}">${displayStatus}</span></td>
                     <td>
                         <button onclick="deleteTimingRecord('${event.id}')" class="btn danger" style="padding: 5px 10px; font-size: 0.7rem;">
                             <i class="fas fa-trash"></i>

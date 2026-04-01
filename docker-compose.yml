@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Dashboard Utama (HQ)
+  app:
+    build: .
+    restart: always
+    environment:
+      - IS_VPS=true
+    env_file:
+      - .env
+    depends_on:
+      - db
+    expose:
+      - "5000"
+
+  # Aplikasi Lapangan (Field Station)
+  field_station:
+    build: .
+    command: python FF_Field_Station/server.py
+    restart: always
+    environment:
+      - IS_VPS=true
+    expose:
+      - "5050"
+    depends_on:
+      - db
+
+  # Database Lokal di VPS
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user_flying
+      POSTGRES_PASSWORD: password_flying_finish
+      POSTGRES_DB: flying_finish_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # Nginx Proxy Manager (Pintu Masuk Utama)
+  nginx-proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: always
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      - ./npm_data:/data
+      - ./npm_letsencrypt:/etc/letsencrypt
+
+volumes:
+  postgres_data:

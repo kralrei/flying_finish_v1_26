@@ -637,7 +637,8 @@ def send_static(path):
 
 def run_flask():
     # Gunakan socketio.run agar pengiriman real-time bekerja
-    socketio.run(app, host='127.0.0.1', port=5000, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
+    # Listen on 0.0.0.0 so it can be accessed from outside in VPS
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False, use_reloader=False, allow_unsafe_werkzeug=True)
 
 @app.route('/api/pull_cloud_events')
 def api_pull_cloud_events():
@@ -647,38 +648,53 @@ def api_pull_cloud_events():
 if __name__ == '__main__':
     database.init_db()
     
-    # 1. Jalankan Flask di Thread terpisah (Background)
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
+    # Deteksi apakah running di Docker/VPS
+    is_vps = os.getenv('IS_VPS', 'false').lower() == 'true'
     
-    # 2. ONE-TIME SYNC & LISTENER: Tarik data terbaru saat aplikasi dibuka
-    def _startup_sync():
-        database.pull_events_from_cloud()
-        state = get_current_state()
-        active_id = state.get('active_race_id')
+    # 1. Jalankan Flask di Thread terpisah jika menggunakan Webview, 
+    #    atau jalankan langsung jika di VPS
+    if is_vps:
+        print(">>> MENGAKTIFKAN MODE SERVER (VPS/DOCKER) <<<")
+        # Start startup sync in background
+        def _startup_sync():
+            database.pull_events_from_cloud()
+            state = get_current_state()
+            active_id = state.get('active_race_id')
+            def sync_callback(count):
+                socketio.emit('new_data', {'status': 'sync', 'count': count})
+            if active_id:
+                database.pull_timing_from_cloud(active_id, on_sync_callback=sync_callback)
+            database.start_cloud_listener(active_id, on_sync_callback=sync_callback)
         
-        # Callback untuk update UI saat data cloud masuk (Status: sync)
-        # Status 'sync' akan refresh tabel tapi TIDAK bunyi Beep di script.js
-        def sync_callback(count):
-            socketio.emit('new_data', {'status': 'sync', 'count': count})
-
-        if active_id:
-            database.pull_timing_from_cloud(active_id, on_sync_callback=sync_callback)
+        threading.Thread(target=_startup_sync, daemon=True).start()
         
-        # AKTIFKAN REAL-TIME LISTENER
-        database.start_cloud_listener(active_id, on_sync_callback=sync_callback)
+        # Run Flask in main thread for VPS
+        run_flask()
+    else:
+        # MODE LAPTOP (DENGAN WEBVIEW)
+        t = threading.Thread(target=run_flask)
+        t.daemon = True
+        t.start()
         
-    threading.Thread(target=_startup_sync, daemon=True).start()
-    
-    # 3. Buka Jendela Aplikasi Utama (Desktop view)
-    print("Aplikasi sedang berjalan...")
-    webview.create_window(
-        'Kralrei Flying Finish 2026 - v1.0', 
-        'http://127.0.0.1:5000', 
-        width=1366, 
-        height=768, 
-        resizable=True,
-        min_size=(1024, 720)
-    )
-    webview.start()
+        def _startup_sync():
+            database.pull_events_from_cloud()
+            state = get_current_state()
+            active_id = state.get('active_race_id')
+            def sync_callback(count):
+                socketio.emit('new_data', {'status': 'sync', 'count': count})
+            if active_id:
+                database.pull_timing_from_cloud(active_id, on_sync_callback=sync_callback)
+            database.start_cloud_listener(active_id, on_sync_callback=sync_callback)
+            
+        threading.Thread(target=_startup_sync, daemon=True).start()
+        
+        print("Aplikasi sedang berjalan dengan UI Desktop...")
+        webview.create_window(
+            'Kralrei Flying Finish 2026 - v1.0', 
+            'http://127.0.0.1:5000', 
+            width=1366, 
+            height=768, 
+            resizable=True,
+            min_size=(1024, 720)
+        )
+        webview.start()

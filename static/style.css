@@ -374,7 +374,12 @@ tr:hover td {
 .event-type.F1 { background: #dbeafe; color: #1e40af; }
 .event-type.F2 { background: #fff7ed; color: #9a3412; }
 .event-type.FM { background: #fef2f2; color: #991b1b; }
+.event-type.TC { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+.event-type.TC-CORRECTION { background: #8b5cf6; color: white; border: 1px solid #7c3aed; }
+.event-type.RESTART { background: #6366f1; color: white; border: 1px solid #4f46e5; }
 .event-type.SYS { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+.ns-input.TC-CORRECTION { background: rgba(139, 92, 246, 0.1) !important; color: #8b5cf6 !important; border-color: #8b5cf6 !important; }
 
 .ns-input {
     background: #fff;
