@@ -98,7 +98,7 @@
                                 {% for evt in all_events %}
                                 <option value="{{ evt.Race_ID }}" {% if settings.get('view_id')|string == evt.Race_ID|string %}selected{% endif %}>
                                     {% if settings.get('active_race_id')|string == evt.Race_ID|string %}[ACTIVE] {% endif %}
-                                    {{ evt.Event_Name or '(Unnamed)' }} [#{{ evt.Race_ID[:8] }}]
+                                    {{ evt.Event_Name or '(Unnamed)' }} [#{{ (evt.Race_ID|string)[:8] }}]
                                 </option>
                                 {% endfor %}
                             </select>

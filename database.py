@@ -59,7 +59,7 @@ def get_pg_pool():
     global pg_pool
     if pg_pool is None and DATABASE_URL:
         try:
-            # Perkecil pool size agar tidak kena limit Aiven (max 5 per laptop)
+            # Perkecil pool size agar tidak kena limit (max 5 per laptop)
             pg_pool = psycopg2.pool.ThreadedConnectionPool(1, 5, DATABASE_URL, connect_timeout=10)
         except Exception as e:
             print(f"Error creating PG pool: {e}")
@@ -176,6 +176,8 @@ def init_db():
             pg_conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
             DB_TYPE = 'postgres'
             pg_cur = pg_conn.cursor()
+            
+            # 1. Create all tables first
             pg_cur.execute('''CREATE TABLE IF NOT EXISTS events (
                 race_id TEXT PRIMARY KEY, event_name TEXT, start_date TEXT, end_date TEXT,
                 operator TEXT, koordinat TEXT, total_ss INTEGER DEFAULT 1,
@@ -186,14 +188,6 @@ def init_db():
                 no_start TEXT, line_status TEXT, time_stamp TEXT, ss TEXT, elapsed TEXT,
                 send INTEGER DEFAULT 0, create_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )''')
-            
-            try:
-                pg_cur.execute("ALTER TABLE timing ADD COLUMN IF NOT EXISTS elapsed TEXT")
-                pg_cur.execute("ALTER TABLE timing ADD COLUMN IF NOT EXISTS penalty INTEGER DEFAULT 0")
-                pg_cur.execute("ALTER TABLE starting_list ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'OK'") # OK, DNF, DNS
-            except:
-                pass
-            
             pg_cur.execute('''CREATE TABLE IF NOT EXISTS starting_list (
                 id TEXT PRIMARY KEY, race_id TEXT REFERENCES events(race_id),
                 ns TEXT, driver TEXT, co_driver TEXT, car TEXT, eligibility TEXT,
@@ -201,9 +195,16 @@ def init_db():
             )''')
             pg_cur.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
             
-            # Setup Real-time Triggers (Postgres)
-            cur = pg_cur
-            cur.execute("""
+            # 2. Run migrations (Optional columns) - commits after this
+            try:
+                pg_cur.execute("ALTER TABLE timing ADD COLUMN IF NOT EXISTS elapsed TEXT")
+                pg_cur.execute("ALTER TABLE timing ADD COLUMN IF NOT EXISTS penalty INTEGER DEFAULT 0")
+                pg_cur.execute("ALTER TABLE starting_list ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'OK'") # OK, DNF, DNS
+            except:
+                pass # Silently ignore if already exists or fails (not ideal but better than aborting everything)
+
+            # 3. Setup Real-time Triggers (Postgres)
+            pg_cur.execute("""
                 CREATE OR REPLACE FUNCTION notify_timing_change() RETURNS TRIGGER AS $$
                 BEGIN
                     PERFORM pg_notify('timing_changed', '');
@@ -212,14 +213,14 @@ def init_db():
                 $$ LANGUAGE plpgsql;
             """)
             
-            cur.execute("""
+            pg_cur.execute("""
                 DROP TRIGGER IF EXISTS timing_notify_trig ON timing;
                 CREATE TRIGGER timing_notify_trig 
                 AFTER INSERT OR UPDATE OR DELETE ON timing
                 FOR EACH STATEMENT EXECUTE FUNCTION notify_timing_change();
             """)
             
-            cur.execute("""
+            pg_cur.execute("""
                 DROP TRIGGER IF EXISTS starting_notify_trig ON starting_list;
                 CREATE TRIGGER starting_notify_trig 
                 AFTER INSERT OR UPDATE OR DELETE ON starting_list
@@ -231,6 +232,11 @@ def init_db():
             pg_conn.close()
             print(">>> CLOUD SYNC (POSTGRESQL) ACTIVE & TRIGGERS INSTALLED <<<")
         except Exception as e:
+            if 'pg_conn' in locals() and pg_conn:
+                try: pg_conn.rollback()
+                except: pass
+                try: pg_conn.close()
+                except: pass
             print(f">>> CLOUD SYNC INACTIVE: {e} <<<")
             DB_TYPE = 'sqlite'
 
@@ -812,6 +818,20 @@ def sync_sqlite_to_postgres():
                 no_start = EXCLUDED.no_start, elapsed = EXCLUDED.elapsed
             """, (t.get('id'), t.get('race_id'), t.get('no_start'), t.get('line_status'), 
                   t.get('time_stamp'), t.get('ss'), t.get('elapsed'), t.get('send'), t.get('create_at')))
+            
+        # 4. Sync Starting List
+        sq_cur.execute("SELECT * FROM starting_list")
+        starters = sq_cur.fetchall()
+        for s in starters:
+            s = {k.lower(): v for k, v in dict(s).items()}
+            pg_cur.execute("""
+                INSERT INTO starting_list (id, race_id, ns, driver, co_driver, car, eligibility, create_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET 
+                ns = EXCLUDED.ns, driver = EXCLUDED.driver, co_driver = EXCLUDED.co_driver, 
+                car = EXCLUDED.car, eligibility = EXCLUDED.eligibility
+            """, (s.get('id'), s.get('race_id'), s.get('ns'), s.get('driver'), 
+                  s.get('co_driver'), s.get('car'), s.get('eligibility'), s.get('create_at')))
 
         pg_conn.commit()
         pg_cur.close()
@@ -827,7 +847,7 @@ def sync_sqlite_to_postgres():
         return False, f"Sync Gagal: {str(e)}"
 
 def pull_events_from_cloud():
-    """Menarik daftar Event dari Aiven ke SQLite lokal (untuk sistem HQ)"""
+    """Menarik daftar Event dari Cloud ke SQLite lokal (untuk sistem HQ)"""
     if not DATABASE_URL:
         return False, "Database URL tidak ditemukan"
     
@@ -860,7 +880,7 @@ def pull_events_from_cloud():
         return False, f"Gagal menarik data: {str(e)}"
 
 def pull_timing_from_cloud(race_id=None, ss=None, on_sync_callback=None):
-    """Menarik data timing (TC/Start/dll) dari Aiven ke SQLite lokal"""
+    """Menarik data timing (TC/Start/dll) dari Cloud ke SQLite lokal"""
     global is_pulling
     if not DATABASE_URL:
         return False, "Database URL tidak ditemukan"

@@ -9,7 +9,7 @@ import uuid
 app = Flask(__name__)
 CORS(app) # Allow connections from the mobile app
 
-# Aiven PostgreSQL Connection (Using Env Var)
+# PostgreSQL Connection (VPS Biznet)
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://user_flying:password_flying_finish@103.126.116.74:5432/flying_finish_db')
 
 def get_db_connection():
@@ -76,7 +76,7 @@ def save_timing():
         result = cur.fetchone()
         race_id = result[0] if result else '1'
         
-        # Insert into Aiven Timing Table (UUID ID)
+        # Insert into Cloud Postgres Timing Table (UUID ID)
         timing_id = str(uuid.uuid4())
         
         cur.execute("""

@@ -263,6 +263,7 @@ async function fetchEvents() {
                                class="ns-input ${statusClass}"
                                style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;">
                     </td>
+                    <td style="font-family: 'Courier New', monospace; font-weight: bold; color: #10b981;">${event.elapsed || '-'}</td>
                     ${isTCStart ? '' : `
                     <td>
                         <input type="number" data-id="${event.id}" data-field="pen" value="${penToDisplay}" 
@@ -327,6 +328,7 @@ async function fetchEvents() {
                     <td>${index + 1}</td>
                     <td><span style="font-weight: bold; color: #2980b9;">${event.SS || '1'}</span></td>
                     <td><input type="text" data-id="${event.id}" data-field="ns" value="${valToDisplay}" onkeydown="if(event.key==='Enter') { updateNS('${event.id}', this.value); this.blur(); }" class="ns-input F1" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
+                    <td style="font-family: 'Courier New', monospace; font-weight: bold; color: #10b981;">${event.elapsed || '-'}</td>
                     <td>
                         <input type="number" data-id="${event.id}" data-field="pen" value="${event.penalty || 0}" 
                                onkeydown="if(event.key==='Enter') { updatePenalty('${event.id}', this.value); this.blur(); }" 
@@ -361,6 +363,7 @@ async function fetchEvents() {
                     <td>${index + 1}</td>
                     <td><span style="font-weight: bold; color: #2980b9;">${event.SS || '1'}</span></td>
                     <td><input type="text" data-id="${event.id}" data-field="ns" value="${valToDisplay}" onkeydown="if(event.key==='Enter') { updateNS('${event.id}', this.value); this.blur(); }" class="ns-input F2" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
+                    <td style="font-family: 'Courier New', monospace; font-weight: bold; color: #10b981;">${event.elapsed || '-'}</td>
                     <td>
                         <input type="number" data-id="${event.id}" data-field="pen" value="${event.penalty || 0}" 
                                onkeydown="if(event.key==='Enter') { updatePenalty('${event.id}', this.value); this.blur(); }" 
@@ -1222,5 +1225,120 @@ async function updateTime(id, newTime) {
         fetchEvents();
     } catch (e) {
         console.error('Failed to update time:', e);
+    }
+}
+
+/* --- WEB SERIAL API FOR ANDROID --- */
+let serialPort;
+let serialReader;
+let serialBuffer = '';
+
+// Check if browser supports Web Serial
+if ('serial' in navigator) {
+    const usbControls = document.getElementById('usbControls');
+    if (usbControls) usbControls.style.display = 'flex';
+}
+
+async function connectUSB() {
+    try {
+        serialPort = await navigator.serial.requestPort();
+        await serialPort.open({ baudRate: 9600 });
+        
+        const usbStatus = document.getElementById('usbStatus');
+        const connectBtn = document.getElementById('connectUsbBtn');
+        
+        if (usbStatus) {
+            usbStatus.innerHTML = '<i class="fas fa-microchip"></i> USB: ONLINE';
+            usbStatus.style.color = '#10b981';
+        }
+        if (connectBtn) connectBtn.style.display = 'none';
+
+        readSerialLoop();
+    } catch (e) {
+        console.error('Serial Connection Error:', e);
+        alert("Gagal koneksi USB: " + e.message);
+    }
+}
+
+async function readSerialLoop() {
+    while (serialPort.readable) {
+        serialReader = serialPort.readable.getReader();
+        try {
+            while (true) {
+                const { value, done } = await serialReader.read();
+                if (done) break;
+                
+                const text = new TextDecoder().decode(value);
+                serialBuffer += text;
+                
+                while (serialBuffer.includes(';')) {
+                    const parts = serialBuffer.split(';', 2);
+                    const line = parts[0].trim();
+                    serialBuffer = parts[1];
+                    if (line) processExternalMessage(line);
+                }
+            }
+        } catch (error) {
+            console.error('Read Error:', error);
+        } finally {
+            serialReader.releaseLock();
+        }
+    }
+}
+
+function processExternalMessage(message) {
+    if (!message.startsWith('$')) return;
+    const cleanMsg = message.substring(1);
+    
+    const starIdx = cleanMsg.indexOf('*');
+    if (starIdx === -1) return;
+    
+    const rawData = cleanMsg.substring(0, starIdx);
+    const checksum = cleanMsg.substring(starIdx + 1);
+    
+    let expected = 0;
+    for (let i = 0; i < rawData.length; i++) expected ^= rawData.charCodeAt(i);
+    
+    if (expected.toString(16).toUpperCase().padStart(2, '0') === checksum.toUpperCase()) {
+        const parts = rawData.split(',');
+        if (parts.length >= 2) {
+            const lineStatus = parts[0];
+            const timestampRaw = parts[1];
+            
+            const precision = window.TIME_PRECISION || 3;
+            let formattedTime = timestampRaw;
+            
+            if (timestampRaw.length >= 7 && /^\d+$/.test(timestampRaw)) {
+                const h = timestampRaw.substring(0,2);
+                const m = timestampRaw.substring(2,4);
+                const s = timestampRaw.substring(4,6);
+                const ms = timestampRaw.substring(6, 6 + precision);
+                formattedTime = `${h}:${m}:${s}.${ms}`;
+            }
+
+            reportExternalTiming(lineStatus, formattedTime);
+        }
+    }
+}
+
+async function reportExternalTiming(line, time) {
+    const ssSelector = document.getElementById('ssSelector');
+    const ss = ssSelector ? ssSelector.value : '1';
+    
+    try {
+        const res = await fetch('/api/external_timing', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                line: line,
+                timestamp: time,
+                ss: ss
+            })
+        });
+        if (res.ok) {
+            window.PENDING_BEEP = true; 
+        }
+    } catch (e) {
+        console.error('Report Error:', e);
     }
 }

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='style.css') }}?v=15" rel="stylesheet">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#2c3e50">
 </head>
 <body>
     <div class="app-layout">
@@ -53,6 +55,16 @@
                             <i class="fas fa-arrow-left"></i> RIGHT
                         </button>
                     </div>
+                    
+                    <!-- Android PWA / USB-OTG Controls -->
+                    <div id="usbControls" style="display: none; align-items: center; gap: 10px; background: rgba(0,0,0,0.05); padding: 5px 12px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1);">
+                        <span id="usbStatus" style="font-size: 0.8rem; font-weight: bold; color: #64748b;">
+                           <i class="fas fa-microchip"></i> USB: OFF
+                        </span>
+                        <button class="btn primary" id="connectUsbBtn" onclick="connectUSB()" style="padding: 6px 12px; font-size: 0.75rem;">
+                            <i class="fas fa-plug"></i> Connect USB
+                        </button>
+                    </div>
                 </div>
                 <div class="view-controls" style="display: flex; gap: 15px; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -89,6 +101,7 @@
                                 <th>no</th>
                                 <th>SS</th>
                                 <th>ns</th>
+                                <th>Duration</th>
                                 <th>Penalty</th>
                                 <th>Finish Time</th>
                                 <th>Status</th>
@@ -106,6 +119,7 @@
                                            class="ns-input {{ event.Line_Status }}"
                                            style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;">
                                 </td>
+                                <td style="font-family: 'Courier New', monospace; font-weight: bold; color: #10b981;">{{ event.elapsed or '-' }}</td>
                                 <td>
                                     <input type="number" data-id="{{ event.id }}" value="{{ event.penalty or 0 }}" 
                                            onkeydown="if(event.key==='Enter') { updatePenalty('{{ event.id }}', this.value); this.blur(); }" 
@@ -142,6 +156,7 @@
                                     <th>no</th>
                                     <th>SS</th>
                                     <th>ns</th>
+                                    <th>Duration</th>
                                     <th>Pen</th>
                                     <th>Finish Time</th>
                                     <th>Status</th>
@@ -155,6 +170,7 @@
                                     <td>{{ f1_idx.value }}</td>
                                     <td><span style="font-weight: bold; color: #2980b9;">{{ event.SS or '1' }}</span></td>
                                     <td><input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" onkeydown="if(event.key==='Enter') { updateNS('{{ event.id }}', this.value); this.blur(); }" class="ns-input F1" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
+                                    <td style="font-family: 'Courier New', monospace; font-weight: bold; color: #10b981;">{{ event.elapsed or '-' }}</td>
                                     <td>
                                         <input type="number" data-id="{{ event.id }}" value="{{ event.penalty or 0 }}" onkeydown="if(event.key==='Enter') { updatePenalty('{{ event.id }}', this.value); this.blur(); }" style="width: 50px; text-align: center; border: 1px solid #edeff2; border-radius: 4px;">
                                     </td>
@@ -186,6 +202,7 @@
                                     <th>no</th>
                                     <th>SS</th>
                                     <th>ns</th>
+                                    <th>Duration</th>
                                     <th>Pen</th>
                                     <th>Finish Time</th>
                                     <th>Status</th>
@@ -199,6 +216,7 @@
                                     <td>{{ f2_idx.value }}</td>
                                     <td><span style="font-weight: bold; color: #2980b9;">{{ event.SS or '1' }}</span></td>
                                     <td><input type="text" data-id="{{ event.id }}" value="{{ event.No_start or '' }}" onkeydown="if(event.key==='Enter') { updateNS('{{ event.id }}', this.value); this.blur(); }" class="ns-input F2" style="width: 80px; text-align: center; border: 2px solid #dee2e6; border-radius: 6px; font-weight: bold;"></td>
+                                    <td style="font-family: 'Courier New', monospace; font-weight: bold; color: #10b981;">{{ event.elapsed or '-' }}</td>
                                     <td>
                                         <input type="number" data-id="{{ event.id }}" value="{{ event.penalty or 0 }}" onkeydown="if(event.key==='Enter') { updatePenalty('{{ event.id }}', this.value); this.blur(); }" style="width: 50px; text-align: center; border: 1px solid #edeff2; border-radius: 4px;">
                                     </td>

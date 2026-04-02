@@ -1,6 +1,6 @@
 # FF Field Station (Mobile Station App) 🏁
 
-Aplikasi stasiun lapangan mandiri untuk **TC (Time Control)** dan **Start Line** yang terhubung langsung ke **Aiven PostgreSQL**.
+Aplikasi stasiun lapangan mandiri untuk **TC (Time Control)** dan **Start Line** yang terhubung langsung ke **Cloud PostgreSQL**.
 
 ## 🛠️ Persiapan Awal
 

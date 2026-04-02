@@ -8,8 +8,7 @@ from datetime import datetime
 load_dotenv()
 
 # Get Database URL from environment variable
-# Fallback to the known Aiven URL if .env is missing or doesn't have it
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgres://avnadmin:AVNS_kBuJkPaOCdYMOCjCU0x@kralreirally2026-ipenk79-a621.j.aivencloud.com:17394/defaultdb?sslmode=require')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://user_flying:password_flying_finish@localhost:5432/flying_finish_db')
 
 def format_row(row):
     """Helper to format a row for cleaner output"""

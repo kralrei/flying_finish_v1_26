@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>FF Android Station v1</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-dark: #1e293b;
+            --accent-primary: #6366f1;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-light: #f8fafc;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Status Bar Mobile Style */
+        .header-bar {
+            background-color: var(--card-dark);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid rgba(255,255,255,0.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .indicator {
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-offline { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .status-online { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+
+        /* Main Layout */
+        .content-area {
+            flex: 1;
+            padding: 15px;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 15px;
+            overflow: hidden;
+        }
+
+        /* Top Controls: SS, Race Selection */
+        .top-deck {
+            display: flex;
+            gap: 12px;
+        }
+
+        .selector-box {
+            background: var(--card-dark);
+            border-radius: 12px;
+            padding: 10px 15px;
+            flex: 1;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        select {
+            background: #0f172a;
+            color: white;
+            border: none;
+            font-weight: 800;
+            font-size: 1.1rem;
+            outline: none;
+        }
+
+        /* Dual Track View */
+        .track-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .track-card {
+            background: var(--card-dark);
+            border-radius: 16px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+
+        .track-header {
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.2);
+            font-weight: 800;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .timing-row {
+            background: rgba(0,0,0,0.2);
+            margin-bottom: 8px;
+            padding: 12px 15px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #6366f1;
+            animation: slide-in 0.3s ease-out;
+        }
+
+        @keyframes slide-in {
+            from { transform: translateX(-10px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .row-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            color: var(--accent-green);
+        }
+
+        /* Huge Capture Button for Android Tap */
+        .bottom-action {
+            padding: 20px;
+            background: var(--card-dark);
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn-huge {
+            flex: 1;
+            height: 120px;
+            border-radius: 20px;
+            border: none;
+            color: white;
+            font-weight: 800;
+            font-size: 1.3rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-huge:active { transform: scale(0.95); }
+
+        .btn-f1 { background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%); }
+        .btn-f2 { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); }
+        .btn-fm { background: linear-gradient(135deg, #334155 0%, #1e293b 100%); }
+
+        .btn-huge sub { font-size: 0.8rem; font-weight: 400; opacity: 0.7; }
+
+        .badge-sync { font-size: 0.7rem; color: #94a3b8; }
+        .synced { color: #10b981; }
+
+        /* USB Pop-up */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+            z-index: 1000; display: none; align-items: center; justify-content: center;
+        }
+        .modal-card {
+            background: var(--card-dark); width: 80%; max-width: 400px;
+            padding: 30px; border-radius: 24px; text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header-bar">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-weight: 800; font-size: 1rem; color: var(--accent-primary);">KRALREI <span style="color:white;">STATION</span></span>
+            <span style="font-size: 0.6rem; color: #94a3b8;">V1.0 - ANDROID PRE-RELEASE</span>
+        </div>
+        
+        <div class="status-indicators">
+            <div id="usbStatus" class="indicator status-offline"><i class="fas fa-microchip"></i> DECODER: OFF</div>
+            <div id="netStatus" class="indicator status-offline"><i class="fas fa-wifi"></i> CLOUD: OFF</div>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="top-deck">
+            <div class="selector-box">
+                <span style="font-size: 0.7rem; color: #94a3b8; font-weight: 800;">ACTIVE EVENT</span>
+                <select id="raceSelector"><option>Loading...</option></select>
+            </div>
+            <div class="selector-box" style="flex: 0.3;">
+                <span style="font-size: 0.7rem; color: #94a3b8; font-weight: 800;">SS</span>
+                <select id="ssSelector">
+                    <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="track-grid">
+            <div class="track-card">
+                <div class="track-header">
+                    <span><i class="fas fa-arrow-right"></i> Track Left</span>
+                    <span id="countF1">0</span>
+                </div>
+                <div class="list-container" id="listF1">
+                    <!-- Data masuk di sini -->
+                </div>
+            </div>
+            <div class="track-card">
+                <div class="track-header">
+                    <span><i class="fas fa-arrow-left"></i> Track Right</span>
+                    <span id="countF2">0</span>
+                </div>
+                <div class="list-container" id="listF2">
+                    <!-- Data masuk di sini -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-action">
+        <button class="btn-huge btn-f1" onclick="handleManual('F1')">
+            <i class="fas fa-arrow-right"></i>
+            LEFT (F1)
+            <sub>TAP IF SENSOR FAILS</sub>
+        </button>
+        <button class="btn-huge btn-f2" onclick="handleManual('F2')">
+            <i class="fas fa-arrow-left"></i>
+            RIGHT (F2)
+            <sub>TAP IF SENSOR FAILS</sub>
+        </button>
+        <button class="btn-huge btn-fm" id="btnConnect" onclick="connectUSB()">
+            <i class="fas fa-plug"></i>
+            CONNECT DECODER
+            <sub>START USB-OTG</sub>
+        </button>
+    </div>
+
+    <!-- Modal for Initial Setup -->
+    <div id="setupModal" class="modal">
+        <div class="modal-card">
+            <i class="fas fa-satellite fa-3x" style="color: var(--accent-primary); margin-bottom: 20px;"></i>
+            <h2>Selamat Datang</h2>
+            <p style="color: #94a3b8; font-size: 0.9rem;">Pastikan internet aktif untuk sinkronisasi pertama kali.</p>
+            <button class="btn-huge btn-f1" style="height: 60px;" onclick="hideModal('setupModal')">MENGERTI</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // Service Worker for Offline access
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+        function hideModal(id) { document.getElementById(id).style.display = 'none'; }
+    </script>
+</body>
+</html>

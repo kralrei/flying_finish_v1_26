@@ -599,6 +599,28 @@ def api_save_race_setup():
         return jsonify({'status': 'success'})
     return jsonify({'status': 'error'}), 500
 
+@app.route('/api/external_timing', methods=['POST'])
+def api_external_timing():
+    data = request.json
+    line_status = data.get('line')
+    timestamp = data.get('timestamp')
+    ss_number = data.get('ss', '1')
+    
+    if not line_status or not timestamp:
+        return jsonify({'error': 'Missing line or timestamp'}), 400
+        
+    state = get_current_state()
+    active_race_id = state.get('active_race_id')
+    
+    if not active_race_id:
+        return jsonify({'error': 'No active event'}), 400
+        
+    database.add_timing(active_race_id, line_status, timestamp, ss_number=ss_number)
+    socketio.emit('new_data', {'status': 'event', 'line': line_status})
+    print(f"External Timing: {line_status} @ {timestamp} (Race ID: {active_race_id}, SS: {ss_number})")
+    
+    return jsonify({'status': 'success'})
+
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
     message = None
@@ -634,6 +656,14 @@ def settings():
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
+
+@app.route('/station/<path:path>')
+def send_station_static(path):
+    return send_from_directory('FF_Android_Station', path)
+
+@app.route('/station')
+def station_index():
+    return send_from_directory('FF_Android_Station', 'index.html')
 
 def run_flask():
     # Gunakan socketio.run agar pengiriman real-time bekerja

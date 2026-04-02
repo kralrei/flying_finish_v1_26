@@ -21,6 +21,8 @@ services:
     restart: always
     environment:
       - IS_VPS=true
+    env_file:
+      - .env
     expose:
       - "5050"
     depends_on:
